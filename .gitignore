@@ -1,0 +1,66 @@
+# Monorepo Global .gitignore
+
+# Operating System
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log
+logs/
+
+# Environment Variables
+
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Frontend (Next.js)
+
+client/node_modules
+client/.next
+client/out
+client/build
+
+# Backend (Python)
+
+server/venv
+server/__pycache__
+server/**/*.pyc
+server/**/*.pyo
+
+# Python
+
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+
+# Alembic
+
+server/alembic/versions/*.pyc
+
+# IDE
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+.idea/
+
+# Docker
+
+docker-data/
+
+# Coverage
+
+coverage/
+htmlcov/
+
+# Build Artifacts
+
+dist/
+build/
