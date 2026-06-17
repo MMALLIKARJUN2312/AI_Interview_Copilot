@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest
 from app.services.auth_service import AuthService
+from app.core.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/auth",
@@ -37,3 +38,7 @@ def login(payload : LoginRequest, db : Session = Depends(get_db)):
 
     except ValueError as error:
         raise HTTPException(status_code=401, detail=str(error))
+    
+@router.get('/me')
+def me(current_user=Depends(get_current_user)):
+    return current_user
