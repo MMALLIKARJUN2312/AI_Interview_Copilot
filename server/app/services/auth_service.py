@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.services.user_service import UserService
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
+from app.core.jwt import create_access_token
 
 class AuthService:
     
@@ -14,3 +15,21 @@ class AuthService:
         hashed = hash_password(password)
         
         return UserService.create_user(db, full_name, email, hashed)
+    
+    @staticmethod
+    def login_user(db, email, password):
+        user = UserService.get_user_by_email(db, email)
+        
+        if not user:
+            raise ValueError("Invalid Credentials")
+        
+        if not verify_password(password, user.hashed_password):
+            raise ValueError("Invalid Credentials")
+        
+        token = create_access_token({
+            "sub" : str(user.id),
+            "email" : user.email,
+            "role" : user.role
+        })
+        
+        return token 
