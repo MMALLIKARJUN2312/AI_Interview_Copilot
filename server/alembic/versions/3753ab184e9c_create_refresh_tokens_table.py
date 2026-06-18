@@ -1,8 +1,8 @@
-"""test
+"""create_refresh_tokens_table
 
-Revision ID: 72d2c6feb71c
+Revision ID: 3753ab184e9c
 Revises: 
-Create Date: 2026-06-18 18:55:25.922073
+Create Date: 2026-06-18 19:30:49.457315
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '72d2c6feb71c'
+revision: str = '3753ab184e9c'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
