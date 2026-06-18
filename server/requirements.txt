@@ -26,5 +26,6 @@ pytest
 httpx
 
 python-multipart
-
 email-validator
+
+pypdf
