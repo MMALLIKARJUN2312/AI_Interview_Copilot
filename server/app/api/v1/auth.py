@@ -4,6 +4,7 @@ from app.db.session import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest
 from app.services.auth_service import AuthService
 from app.core.dependencies import get_current_user
+from app.core.rbac import require_role
 
 router = APIRouter(
     prefix="/auth",
@@ -42,3 +43,7 @@ def login(payload : LoginRequest, db : Session = Depends(get_db)):
 @router.get('/me')
 def me(current_user=Depends(get_current_user)):
     return current_user
+
+@router.get('/admin')
+def admin_dashboard(current_user=Depends(require_role(["admin"]))):
+    return {"message" : "Welcome Admin"}
