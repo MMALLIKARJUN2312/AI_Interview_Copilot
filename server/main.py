@@ -5,10 +5,6 @@ from app.db.database import engine
 
 from app.models.user import User 
 
-Base.metadata.create_all(
-    bind=engine
-)
-
 from app.api.v1.auth import router as auth_router
 
 app = FastAPI(
