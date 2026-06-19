@@ -1,4 +1,5 @@
 from pypdf import PdfReader
+from app.services.gemini_service import (GeminiService)
 
 class ResumeService:
     
@@ -12,3 +13,7 @@ class ResumeService:
             text += page.extract_text()
         
         return text 
+    
+    @staticmethod
+    def analyze_resume(resume_text : str):
+        return (GeminiService.analyze_resume(resume_text))
