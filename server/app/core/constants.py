@@ -1,0 +1,3 @@
+MAX_RESUME_SIZE = 5
+
+ALLOWED_RESUME_TYPES = ["application/pdf"]
