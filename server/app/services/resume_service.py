@@ -15,6 +15,11 @@ class ResumeService:
             if page_text:
                 text += page_text + "\n"
         
+        if not text.strip():
+            raise ValueError(
+                "Unable to extract the text from the uploaded pdf"
+            )
+        
         return text 
     
     @staticmethod

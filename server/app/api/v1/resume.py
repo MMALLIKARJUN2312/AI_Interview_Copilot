@@ -25,7 +25,7 @@ async def analyze_resume(file : UploadFile = File(...)):
         
         await file.seek(0)
         
-        file_path = (await FileService.save_resume(file))
+        file_path = await FileService.save_resume(file)
         extracted_text = ResumeService.extract_text(file_path)
         analysis = ResumeService.analyze_resume(extracted_text)
         
@@ -33,6 +33,8 @@ async def analyze_resume(file : UploadFile = File(...)):
     
     except HTTPException:
         raise 
-    except Exception as error : 
+    except ValueError as error :
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception : 
         raise HTTPException(status_code=500, detail=("Resume analysis failed"))
         
