@@ -1,11 +1,11 @@
 from google import genai
-from app.core.config import Settings
+from app.core.config import settings
 
 class GeminiService:
     
     @staticmethod
     def analyze_resume(resume_text : str):
-        client = genai.Client(api_key=Settings.GEMINI_API_KEY)
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
         prompt = f"""
 You are a senior technical recruiter.
