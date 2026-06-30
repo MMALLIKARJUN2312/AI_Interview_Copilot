@@ -14,7 +14,11 @@ class AuthService:
         
         hashed = hash_password(password)
         
-        return UserService.create_user(db, full_name, email, hashed)
+        return UserService.create_user(
+            db=db, 
+            full_name=full_name,
+            email=email, 
+            hashed_password=hashed)
     
     @staticmethod
     def login_user(db, email, password):
