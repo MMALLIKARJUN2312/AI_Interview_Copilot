@@ -26,8 +26,8 @@ async def analyze_resume(file : UploadFile = File(...)):
         await file.seek(0)
         
         file_path = (await FileService.save_resume(file))
-        extracted_text = (await ResumeService.extract_text(file_path))
-        analysis = (await ResumeService.analyze_resume(extracted_text))
+        extracted_text = ResumeService.extract_text(file_path)
+        analysis = ResumeService.analyze_resume(extracted_text)
         
         return analysis
     
