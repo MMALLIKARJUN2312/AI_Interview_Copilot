@@ -30,6 +30,7 @@ class UserRepository:
         
         return user 
     
+    @staticmethod
     def delete(db : Session, user : User) -> None:
         db.delete(user)
         db.commit()
