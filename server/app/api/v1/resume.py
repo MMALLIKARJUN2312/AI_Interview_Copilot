@@ -2,6 +2,7 @@ from fastapi import (APIRouter, UploadFile, File, HTTPException)
 from app.services.file_service import FileService
 from app.services.resume_service import ResumeService
 from app.core.constants import (MAX_RESUME_SIZE, ALLOWED_RESUME_TYPES)
+from app.core.logger import logger
 
 router = APIRouter(
     prefix='/resume',
@@ -11,17 +12,18 @@ router = APIRouter(
 @router.post('/analyze')
 async def analyze_resume(file : UploadFile = File(...)):
     try : 
+        logger.info("Resume upload received : %s", file.filename)
+        
         if (file.content_type not in ALLOWED_RESUME_TYPES):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        
         contents = await file.read()
         
         max_size = (MAX_RESUME_SIZE * 1024 * 1024)
         
         if len(contents) > max_size:
-            raise HTTPException(status_code=400, detail=
-                    f"File exceeds "
-                    f"{MAX_RESUME_SIZE} MB"
-                  )
+            raise HTTPException(status_code=400, detail=f"File exceeds {MAX_RESUME_SIZE} MB"
+        )
         
         await file.seek(0)
         
@@ -36,5 +38,6 @@ async def analyze_resume(file : UploadFile = File(...)):
     except ValueError as error :
         raise HTTPException(status_code=400, detail=str(error))
     except Exception : 
+        logger.exception("Resume analysis failed")
         raise HTTPException(status_code=500, detail=("Resume analysis failed"))
         
