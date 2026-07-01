@@ -1,0 +1,11 @@
+"""Constants used throughout the AI platform"""
+
+DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_TEMPERATURE = 0.2
+DEFAULT_MAX_OUTPUT_TOKENS = 4096
+DEFAULT_TOP_P = 0.9
+DEFAULT_TIMEOUT_SECONDS = 60
+MAX_RETRY_ATTEMPTS = 3
+SUPPORTED_FILE_TYPES = [
+    "application/pdf"
+]
