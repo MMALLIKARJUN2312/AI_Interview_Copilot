@@ -7,6 +7,7 @@ from app.ai.validator import AIResponseValidator
 from app.ai.constants import DEFAULT_MODEL
 from app.ai.exceptions import AIProviderError
 from app.core.config import settings
+from app.core.logger import logger
 from app.ai.retry import retry_ai_request
 
 class GeminiProvider(AIProvider):
@@ -31,7 +32,8 @@ class GeminiProvider(AIProvider):
             return response.text
         
         except Exception as exc:
-            raise AIProviderError(f"Gemini request failed : {exc}") from exc
+            logger.exception("Gemini request failed")
+            raise AIProviderError("Failed to communicate with the AI provider") from exc
         
 class AIClient:
     """Entry point for all AI requests"""
