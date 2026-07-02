@@ -21,6 +21,7 @@ class GeminiProvider(AIProvider):
     @retry_ai_request    
     def generate(self, prompt : str) -> str:
         try:
+            logger.info("Sending request to the Gemini model: %s", DEFAULT_MODEL)
             response = self.client.models.generate_content(
                 model=DEFAULT_MODEL,
                 contents=prompt
@@ -28,6 +29,8 @@ class GeminiProvider(AIProvider):
             
             if response.text is None:
                 raise AIProviderError("Gemini returned an empty response")
+            
+            logger.info("Gemini request completed successfully")
             
             return response.text
         
