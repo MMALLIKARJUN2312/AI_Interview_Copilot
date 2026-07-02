@@ -1,10 +1,13 @@
 from pypdf import PdfReader
-from app.services.gemini_service import (GeminiService)
+from app.ai.orchestrator import AIOrchestrator
 
 class ResumeService:
     
+    def __init__(self) -> None:
+        self.ai = AIOrchestrator()
+    
     @staticmethod
-    def extract_text(file_path : str):
+    def extract_text(file_path : str) -> str:
         reader = PdfReader(file_path)
         
         text = ""
@@ -23,5 +26,5 @@ class ResumeService:
         return text 
     
     @staticmethod
-    def analyze_resume(resume_text : str):
-        return (GeminiService.analyze_resume(resume_text))
+    def analyze_resume(self, resume_text : str):
+        return self.analyze_resume(resume_text)
