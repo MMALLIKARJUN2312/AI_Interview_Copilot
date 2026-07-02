@@ -1,5 +1,6 @@
 from pypdf import PdfReader
 from app.ai.orchestrator import AIOrchestrator
+from app.ai.models import ResumeAnalysisResult
 
 class ResumeService:
     
@@ -25,6 +26,5 @@ class ResumeService:
         
         return text 
     
-    @staticmethod
-    def analyze_resume(self, resume_text : str):
-        return self.analyze_resume(resume_text)
+    def analyze_resume(self, resume_text : str) -> ResumeAnalysisResult:
+        return self.ai.analyze_resume(resume_text)
