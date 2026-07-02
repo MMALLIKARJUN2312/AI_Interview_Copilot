@@ -1,5 +1,9 @@
 from google import genai
+from typing import Type
+from pydantic import BaseModel
 from app.ai.provider import AIProvider
+from app.ai.parser import AIResponseParser
+from app.ai.validator import AIResponseValidator
 from app.ai.constants import DEFAULT_MODEL
 from app.ai.exceptions import AIProviderError
 from app.core.config import settings
@@ -35,3 +39,9 @@ class AIClient:
     
     def generate(self, prompt : str) -> str:
         return self.provider.generate(prompt)
+    
+    def generate_structured(self, *, prompt : str, response_model : Type[BaseModel]) -> BaseModel:
+        raw_response = self.generate(prompt)
+        parsed = AIResponseParser.parse_json(raw_response)
+        
+        return AIResponseValidator.validate(response=parsed, response_model=response_model)
