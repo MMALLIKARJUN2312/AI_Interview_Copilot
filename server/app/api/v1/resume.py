@@ -27,11 +27,13 @@ async def analyze_resume(file : UploadFile = File(...)):
         
         await file.seek(0)
         
-        file_path = await FileService.save_resume(file)
-        extracted_text = ResumeService.extract_text(file_path)
-        analysis = ResumeService.analyze_resume(extracted_text)
+        resume_service = ResumeService()
         
-        return analysis
+        file_path = await FileService.save_resume(file)
+        extracted_text = resume_service.extract_text(file_path)
+        analysis = resume_service.analyze_resume(extracted_text)
+        
+        return analysis.model_dump()
     
     except HTTPException:
         raise 
