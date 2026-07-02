@@ -1,6 +1,6 @@
 from app.ai.client import AIClient, GeminiProvider
 from app.ai.parser import AIResponseParser
-from app.ai.prompts import PromptMessage
+from app.ai.prompts import PromptManager
 from app.ai.validator import AIResponseValidator
 from app.ai.models import ResumeAnalysisResult
 
@@ -14,7 +14,7 @@ class AIOrchestrator:
         self.client = AIClient(provider=GeminiProvider())
         
     def analyze_resume(self, resume_text : str) -> ResumeAnalysisResult:
-        prompt = PromptMessage.build_resume_analysis_prompt(resume_text)
+        prompt = PromptManager.build_resume_analysis_prompt(resume_text)
         
         raw_response = self.client.generate(prompt)
         

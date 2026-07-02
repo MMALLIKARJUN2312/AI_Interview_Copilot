@@ -2,7 +2,7 @@
 Every AI capability should generate prompts through this module
 """
 
-class PromptMessage:
+class PromptManager:
     """Builds prompts for different AI capabilities"""
     
     @staticmethod
