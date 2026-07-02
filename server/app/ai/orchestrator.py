@@ -1,8 +1,6 @@
 from app.ai.client import AIClient, GeminiProvider
-from app.ai.parser import AIResponseParser
-from app.ai.prompts import PromptManager
-from app.ai.validator import AIResponseValidator
 from app.ai.models import ResumeAnalysisResult
+from app.ai.prompts.registry import PromptRegistry
 
 class AIOrchestrator:
     """Coordinates end-end to AI workflows
@@ -14,6 +12,6 @@ class AIOrchestrator:
         self.client = AIClient(provider=GeminiProvider())
         
     def analyze_resume(self, resume_text : str) -> ResumeAnalysisResult:
-        prompt = PromptManager.build_resume_analysis_prompt(resume_text)
-        
+        prompt = PromptRegistry.resume_analysis().build(resume_text=resume_text)
+               
         return self.client.generate_structured(prompt=prompt, response_model=ResumeAnalysisResult)
