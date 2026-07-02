@@ -16,10 +16,4 @@ class AIOrchestrator:
     def analyze_resume(self, resume_text : str) -> ResumeAnalysisResult:
         prompt = PromptManager.build_resume_analysis_prompt(resume_text)
         
-        raw_response = self.client.generate(prompt)
-        
-        parsed = AIResponseParser.parse_json(raw_response)
-        
-        validated = AIResponseValidator.validate_resume_analysis(parsed)
-        
-        return validated
+        return self.client.generate_structured(prompt=prompt, response_model=ResumeAnalysisResult)
