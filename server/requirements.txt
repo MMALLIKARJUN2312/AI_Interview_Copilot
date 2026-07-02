@@ -29,3 +29,5 @@ python-multipart
 email-validator
 
 pypdf
+
+tenacity>=9.0.0
