@@ -7,6 +7,7 @@ from app.ai.validator import AIResponseValidator
 from app.ai.constants import DEFAULT_MODEL
 from app.ai.exceptions import AIProviderError
 from app.core.config import settings
+from app.ai.retry import retry_ai_request
 
 class GeminiProvider(AIProvider):
     """Gemini implementation of the AIProvider interface"""
@@ -16,6 +17,7 @@ class GeminiProvider(AIProvider):
             api_key=settings.GEMINI_API_KEY
         )
         
+    @retry_ai_request    
     def generate(self, prompt : str) -> str:
         try:
             response = self.client.models.generate_content(
