@@ -1,14 +1,14 @@
-from sqlalchemy import Column, Integer, String
 from app.db.database import Base
+from app.db.mixins import (PrimaryKeyMixin, TimestampMixin)
+from sqlalchemy.orm import Mapped, mapped_column
 
-class User(Base):
+class User(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    role = Column(String, default="candidate")
+    full_name : Mapped[str] = mapped_column(nullable=False)
+    email : Mapped[str] = mapped_column(unique=True ,nullable=False)
+    hashed_password : Mapped[str] = mapped_column(nullable=False)
+    role : Mapped[str] = mapped_column(default="candidate")
     
     
     
