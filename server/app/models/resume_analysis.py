@@ -1,5 +1,5 @@
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Float, Integer, String, JSON, ForeignKey
+from sqlalchemy import Integer, String, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -27,7 +27,7 @@ class ResumeAnalysis(PrimaryKeyMixin, TimestampMixin, Base):
     model : Mapped[str] = mapped_column(String(100), nullable=False)
     prompt_version : Mapped[str] = mapped_column(String(20), default="v1", nullable=False)
     analysis_version : Mapped[str] = mapped_column(String(20), default="v1", nullable=False)
-    processing_time_ms : Mapped[float] = mapped_column(Float, nullable=False)
+    processing_time_ms : Mapped[int] = mapped_column(Integer, nullable=False)
     status : Mapped[AnalysisStatus] = mapped_column(SQLEnum(AnalysisStatus, name = "analysis_status"), default=AnalysisStatus.SUCCESS, nullable=False)
     error_message : Mapped[str | None] = mapped_column(String(500), nullable=True)
     resume : Mapped["Resume"] = relationship(back_populates="analyses")
