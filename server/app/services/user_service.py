@@ -9,7 +9,7 @@ class UserService:
     
     @classmethod
     def get_user_by_email(cls, db : Session, email : str) -> User | None:
-        return cls.repository(db, email)
+        return cls.repository.get_by_email(db, email)
         
     @classmethod
     def create_user(cls, db : Session, full_name : str, email : str, hashed_password : str) -> User:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session 
 from app.db.session import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest
+from app.schemas.auth import RegisterRequest, LoginRequest, UserResponse
 from app.services.auth_service import AuthService
 from app.core.dependencies import get_current_user
 from app.core.rbac import require_role
@@ -40,7 +40,7 @@ def login(payload : LoginRequest, db : Session = Depends(get_db)):
     except ValueError as error:
         raise HTTPException(status_code=401, detail=str(error))
     
-@router.get('/me')
+@router.get('/me', response_model=UserResponse)
 def me(current_user=Depends(get_current_user)):
     return current_user
 
