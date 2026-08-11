@@ -12,17 +12,17 @@ class ResumeRepository(BaseRepository[Resume]):
     def __init__(self) -> None:
         super().__init__(Resume)
         
-    def create_Resume(self, db : Session, resume : Resume) -> Resume:
+    def create_resume(self, db : Session, resume : Resume) -> Resume:
         return self.create(db, resume)
     
     def get_by_stored_filename(self, db : Session, stored_filename : str) -> Resume | None:
         return (db.query(Resume).filter(Resume.stored_filename == stored_filename).first())
     
     def get_user_resumes(self, db : Session, user_id : int) -> list[Resume]:
-        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at_desc()).all())
-    
+        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at.desc()).all())
+
     def get_latest_resume(self, db : Session, user_id : int) -> Resume | None:
-        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at_desc()).first())
+        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at.desc()).first())
         
     def get_user_resume_count(self, db : Session, user_id : int) -> int:
         return (db.query(Resume).filter(Resume.user_id == user_id).count())

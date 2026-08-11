@@ -15,13 +15,13 @@ class ResumeAnalysisRepository(BaseRepository[ResumeAnalysis]):
         return self.create(db, analysis)
     
     def get_latest_analysis(self, db : Session, resume_id : int) -> ResumeAnalysis | None:
-        stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id).order_by(ResumeAnalysis.created_at_desc().limit(1)))
-        
+        stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id).order_by(ResumeAnalysis.created_at.desc()).limit(1))
+
         return db.execute(stmt).scalar_one_or_none()
-    
+
     def get_analysis_history(self, db : Session, resume_id : int) -> list[ResumeAnalysis]:
-        stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id).order_by(ResumeAnalysis.created_at_desc()))
-        
+        stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id).order_by(ResumeAnalysis.created_at.desc()))
+
         return list(db.execute(stmt).scalars().all())
     
     def get_successful_analyses(self, db : Session, resume_id : int) -> list[ResumeAnalysis]:
