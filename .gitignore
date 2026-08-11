@@ -30,6 +30,7 @@ server/venv
 server/__pycache__
 server/**/*.pyc
 server/**/*.pyo
+server/uploads/
 
 # Python
 
