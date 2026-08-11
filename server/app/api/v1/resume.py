@@ -147,3 +147,29 @@ def get_resume(
         raise HTTPException(status_code=404, detail="Resume not found")
 
     return resume
+
+@router.get('/{resume_id}/analysis', response_model=ResumeAnalysisResponse)
+def get_resume_analysis(
+    resume_id : int,
+    current_user : User = Depends(get_current_user),
+    db : Session = Depends(get_db),
+):
+    resume = resume_repository.get_by_id(db, resume_id)
+
+    if resume is None or resume.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    analysis = resume_analysis_repository.get_latest_analysis(db, resume.id)
+
+    if analysis is None or analysis.status != AnalysisStatus.SUCCESS:
+        raise HTTPException(status_code=404, detail="No successful analysis found for this resume")
+
+    return ResumeAnalysisResponse(
+        resume_id=resume.id,
+        analysis_id=analysis.id,
+        target_role=resume.target_role,
+        ats_score=analysis.ats_score,
+        strengths=analysis.strengths,
+        weaknesses=analysis.weaknesses,
+        suggestions=analysis.suggestions,
+    )

@@ -63,3 +63,47 @@ def test_get_own_resume_succeeds(client, auth_headers, uploaded_resume):
 
     assert response.status_code == 200
     assert response.json()["target_role"] == "Backend Engineer"
+
+def test_get_resume_analysis_returns_latest_analysis(client, auth_headers, uploaded_resume):
+    resume_id = uploaded_resume["resume_id"]
+
+    response = client.get(f"/resume/{resume_id}/analysis", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["resume_id"] == resume_id
+    assert body["ats_score"] == 82
+    assert body["target_role"] == "Backend Engineer"
+
+def test_get_resume_analysis_not_found_for_other_user(client, uploaded_resume, other_auth_headers):
+    resume_id = uploaded_resume["resume_id"]
+
+    response = client.get(f"/resume/{resume_id}/analysis", headers=other_auth_headers)
+
+    assert response.status_code == 404
+
+def test_get_resume_analysis_404_when_no_analysis_exists(client, auth_headers, db_engine):
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models.resume import Resume, ResumeStatus
+
+    session_local = sessionmaker(bind=db_engine)
+    db = session_local()
+    resume = Resume(
+        user_id=1,
+        original_filename="r.pdf",
+        stored_filename="no-analysis.pdf",
+        mime_type="application/pdf",
+        file_size=10,
+        target_role="Backend Engineer",
+        status=ResumeStatus.UPLOADED,
+    )
+    db.add(resume)
+    db.commit()
+    db.refresh(resume)
+    resume_id = resume.id
+    db.close()
+
+    response = client.get(f"/resume/{resume_id}/analysis", headers=auth_headers)
+
+    assert response.status_code == 404
