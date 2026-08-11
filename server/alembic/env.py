@@ -1,9 +1,13 @@
+import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+load_dotenv()
 
 from app.db.database import Base
 
@@ -11,6 +15,13 @@ from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.models.resume import Resume
 from app.models.resume_analysis import ResumeAnalysis
+from app.models.interview import (
+    InterviewSession,
+    InterviewQuestion,
+    InterviewAnswer,
+    InterviewFeedback,
+    LearningRoadmap,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,7 +38,11 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-print(Base.metadata.tables.keys())
+# Prefer DATABASE_URL from the environment over the placeholder committed in alembic.ini,
+# so real credentials never need to live in version control.
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
