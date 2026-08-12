@@ -1,13 +1,14 @@
-from pathlib import Path
+import uuid
 
-from fastapi import (APIRouter, UploadFile, File, Form, Depends, HTTPException)
+from fastapi import (APIRouter, UploadFile, File, Form, Depends, HTTPException, Request)
 from sqlalchemy.orm import Session
 
-from app.services.file_service import FileService
 from app.services.resume_service import ResumeService
-from app.core.constants import (MAX_RESUME_SIZE, ALLOWED_RESUME_TYPES)
+from app.services.storage import get_storage_backend
+from app.core.constants import (MAX_RESUME_SIZE, ALLOWED_RESUME_TYPES, PDF_MAGIC_BYTES)
 from app.core.logger import logger
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.models.resume import Resume, ResumeStatus
@@ -26,7 +27,9 @@ resume_repository = ResumeRepository()
 resume_analysis_repository = ResumeAnalysisRepository()
 
 @router.post('/analyze', response_model=ResumeAnalysisResponse)
+@limiter.limit("10/hour")
 async def analyze_resume(
+    request : Request,
     file : UploadFile = File(...),
     target_role : str = Form(..., min_length=2, max_length=150),
     job_description : str | None = Form(None),
@@ -49,10 +52,12 @@ async def analyze_resume(
         if len(contents) > max_size:
             raise HTTPException(status_code=400, detail=f"File exceeds {MAX_RESUME_SIZE} MB")
 
-        await file.seek(0)
+        if not contents.startswith(PDF_MAGIC_BYTES):
+            raise HTTPException(status_code=400, detail="File does not look like a valid PDF")
 
-        file_path = await FileService.save_resume(file)
-        stored_filename = Path(file_path).name
+        storage = get_storage_backend()
+        stored_filename = f"{uuid.uuid4()}.pdf"
+        await storage.save(stored_filename, contents)
 
         resume = Resume(
             user_id=current_user.id,
@@ -71,7 +76,7 @@ async def analyze_resume(
         resume_service = ResumeService()
 
         try:
-            extracted_text = resume_service.extract_text(file_path)
+            extracted_text = resume_service.extract_text(contents)
             generation = resume_service.analyze_resume(extracted_text, target_role, job_description)
         except Exception as ai_error:
             resume_repository.mark_failed(resume)

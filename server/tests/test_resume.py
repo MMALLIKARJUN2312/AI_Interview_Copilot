@@ -20,6 +20,15 @@ def test_upload_rejects_non_pdf(client, auth_headers, fake_ai):
 
     assert response.status_code == 400
 
+def test_upload_rejects_spoofed_content_type(client, auth_headers, fake_ai):
+    files = {"file": ("resume.pdf", io.BytesIO(b"not actually a pdf"), "application/pdf")}
+    data = {"target_role": "Backend Engineer"}
+
+    response = client.post("/resume/analyze", headers=auth_headers, files=files, data=data)
+
+    assert response.status_code == 400
+    assert "valid PDF" in response.json()["detail"]
+
 def test_upload_requires_target_role(client, auth_headers, fake_ai):
     files, _ = _pdf_upload()
 

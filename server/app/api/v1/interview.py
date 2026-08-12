@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.core.logger import logger
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.repositories.interview_repository import InterviewSessionRepository
@@ -37,7 +38,9 @@ feedback_repository = InterviewFeedbackRepository()
 roadmap_repository = LearningRoadmapRepository()
 
 @router.post('/start', response_model=StartInterviewResponse)
+@limiter.limit("10/hour")
 def start_interview(
+    request : Request,
     payload : StartInterviewRequest,
     current_user : User = Depends(get_current_user),
     db : Session = Depends(get_db),
@@ -64,7 +67,9 @@ def start_interview(
     )
 
 @router.post('/{session_id}/answer', response_model=SubmitAnswerResponse)
+@limiter.limit("60/hour")
 def submit_answer(
+    request : Request,
     session_id : int,
     payload : AnswerSubmitRequest,
     current_user : User = Depends(get_current_user),
@@ -89,7 +94,9 @@ def submit_answer(
     )
 
 @router.post('/{session_id}/complete', response_model=CompleteInterviewResponse)
+@limiter.limit("20/hour")
 def complete_interview(
+    request : Request,
     session_id : int,
     current_user : User = Depends(get_current_user),
     db : Session = Depends(get_db),

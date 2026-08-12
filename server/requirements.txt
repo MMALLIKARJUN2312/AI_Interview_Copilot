@@ -31,3 +31,6 @@ email-validator
 pypdf
 
 tenacity>=9.0.0
+
+slowapi
+boto3

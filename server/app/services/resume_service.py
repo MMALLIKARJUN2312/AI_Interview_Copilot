@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from pypdf import PdfReader
 from app.ai.orchestrator import AIOrchestrator
 from app.ai.models import AIGenerationResult, ResumeAnalysisResult
@@ -8,8 +10,8 @@ class ResumeService:
         self.ai = AIOrchestrator()
 
     @staticmethod
-    def extract_text(file_path : str) -> str:
-        reader = PdfReader(file_path)
+    def extract_text(file_bytes : bytes) -> str:
+        reader = PdfReader(BytesIO(file_bytes))
 
         text = ""
 
