@@ -13,21 +13,37 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-const TOKEN_KEY = "aic_access_token";
+const ACCESS_TOKEN_KEY = "aic_access_token";
+const REFRESH_TOKEN_KEY = "aic_refresh_token";
+const AUTH_EXPIRED_EVENT = "aic:auth-expired";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-export function setToken(token: string): void {
+function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(TOKEN_KEY, token);
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 }
 
 export function clearToken(): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+/** Fires when a refresh attempt fails, so the app can force a logout. */
+export function onAuthExpired(handler: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(AUTH_EXPIRED_EVENT, handler);
+  return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
 }
 
 export class ApiError extends Error {
@@ -40,10 +56,34 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const body = (await response.json()) as TokenResponse;
+        setTokens(body.access_token, body.refresh_token);
+        return body.access_token;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+
+  return refreshInFlight;
+}
+
+async function doFetch(path: string, options: RequestInit): Promise<Response> {
   const token = getToken();
   const headers = new Headers(options.headers);
 
@@ -55,10 +95,29 @@ async function request<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+}
+
+const AUTH_ENDPOINTS = ["/auth/login", "/auth/register", "/auth/refresh"];
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  let response = await doFetch(path, options);
+
+  if (response.status === 401 && !AUTH_ENDPOINTS.includes(path)) {
+    const newAccessToken = await refreshAccessToken();
+
+    if (newAccessToken) {
+      response = await doFetch(path, options);
+    } else {
+      clearToken();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      }
+    }
+  }
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
@@ -94,6 +153,16 @@ export const api = {
     return request<TokenResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  logout() {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return Promise.resolve();
+
+    return request<{ message: string }>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
     });
   },
 

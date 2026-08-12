@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.models.resume import Resume
     from app.models.interview import InterviewSession
+    from app.models.refresh_token import RefreshToken
 class User(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
@@ -16,6 +17,7 @@ class User(PrimaryKeyMixin, TimestampMixin, Base):
     role : Mapped[str] = mapped_column(default="candidate")
     resumes : Mapped[list["Resume"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     interview_sessions : Mapped[list["InterviewSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens : Mapped[list["RefreshToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     
     
     

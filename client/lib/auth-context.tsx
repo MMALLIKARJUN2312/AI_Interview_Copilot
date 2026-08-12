@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, clearToken, getToken, setToken } from "@/lib/api";
+import { api, clearToken, getToken, onAuthExpired, setTokens } from "@/lib/api";
 import type { UserResponse } from "@/lib/types";
 
 interface AuthContextValue {
@@ -42,9 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pending.finally(() => setIsLoading(false));
   }, []);
 
+  useEffect(() => {
+    return onAuthExpired(() => setUser(null));
+  }, []);
+
   async function login(email: string, password: string) {
-    const { access_token } = await api.login({ email, password });
-    setToken(access_token);
+    const { access_token, refresh_token } = await api.login({ email, password });
+    setTokens(access_token, refresh_token);
     setUser(await api.me());
   }
 
@@ -54,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    api.logout().catch(() => {
+      // best-effort server-side revocation; local state is cleared regardless
+    });
     clearToken();
     setUser(null);
   }
