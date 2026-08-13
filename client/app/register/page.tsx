@@ -1,5 +1,6 @@
 "use client";
 
+import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -47,8 +48,11 @@ export default function RegisterPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-16">
-      <Card>
+      <Card className="glass-strong animate-fade-in-up">
         <CardHeader>
+          <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-sm">
+            <UserPlus className="size-5" />
+          </div>
           <CardTitle className="text-xl">Create your account</CardTitle>
           <CardDescription>
             Start prepping for the role you actually want.
