@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { AuthProvider } from "@/lib/auth-context";
+import { BackgroundBlobs } from "@/components/background-blobs";
 import { NavBar } from "@/components/nav-bar";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <BackgroundBlobs />
         <AuthProvider>
           <NavBar />
           <main className="flex flex-1 flex-col">{children}</main>
