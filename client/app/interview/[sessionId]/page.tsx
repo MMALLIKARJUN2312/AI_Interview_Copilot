@@ -1,8 +1,11 @@
 "use client";
 
+import { PartyPopper, Sparkle } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
 import { ProtectedRoute } from "@/components/protected-route";
+import { ScoreList } from "@/components/score-list";
+import { ScoreRing } from "@/components/score-ring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,17 +33,15 @@ type Phase =
   | "ready_to_complete"
   | "completed";
 
-function ScoreList({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
+function ProgressBar({ answered, total }: { answered: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, (answered / total) * 100) : 0;
 
   return (
-    <div>
-      <h3 className="mb-2 text-sm font-medium">{title}</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        {items.map((item, index) => (
-          <li key={index}>{item}</li>
-        ))}
-      </ul>
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand-from),var(--brand-to))] transition-[width] duration-500 ease-out"
+        style={{ width: `${pct}%` }}
+      />
     </div>
   );
 }
@@ -179,25 +180,34 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   if (phase === "completed") {
     return (
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">
-          Interview complete
-        </h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          {session?.target_role}
-        </p>
+        <div className="animate-fade-in-up mb-6 flex items-center gap-2">
+          <PartyPopper className="size-6 text-[var(--brand-via)]" />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Interview complete
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {session?.target_role}
+            </p>
+          </div>
+        </div>
 
         {feedback && (
-          <Card className="mb-6">
+          <Card className="animate-fade-in-up mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle>Overall performance</CardTitle>
-                <Badge variant="success">{feedback.overall_score}/100</Badge>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Overall performance</CardTitle>
+                  <CardDescription className="mt-1">
+                    {feedback.summary}
+                  </CardDescription>
+                </div>
+                <ScoreRing score={feedback.overall_score} />
               </div>
-              <CardDescription>{feedback.summary}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
-              <ScoreList title="Strengths" items={feedback.strengths} />
-              <ScoreList title="Weaknesses" items={feedback.weaknesses} />
+              <ScoreList title="Strengths" items={feedback.strengths} kind="positive" />
+              <ScoreList title="Weaknesses" items={feedback.weaknesses} kind="negative" />
               <div>
                 <h3 className="mb-2 text-sm font-medium">Recommendation</h3>
                 <p className="text-sm text-muted-foreground">
@@ -209,18 +219,18 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         )}
 
         {roadmap && roadmap.items.length > 0 && (
-          <Card>
+          <Card className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
             <CardHeader>
               <CardTitle>Your learning roadmap</CardTitle>
               <CardDescription>
                 Prioritized next steps to close the gaps above.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-3">
               {roadmap.items.map((item, index) => (
                 <div
                   key={index}
-                  className="rounded-lg border border-border p-3"
+                  className="rounded-xl border border-border bg-background/40 p-4 transition-colors hover:bg-background/60"
                 >
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <h4 className="font-medium">{item.topic}</h4>
@@ -257,7 +267,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-      <div className="mb-6 flex items-center justify-between gap-2">
+      <div className="animate-fade-in-up mb-3 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Mock interview
@@ -271,10 +281,14 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         </Badge>
       </div>
 
+      <div className="animate-fade-in-up mb-6">
+        <ProgressBar answered={answeredCount} total={totalQuestions} />
+      </div>
+
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
 
       {phase === "answering" && currentQuestion && (
-        <Card>
+        <Card className="animate-fade-in-up" key={currentQuestion.id}>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Badge variant="outline">{currentQuestion.category}</Badge>
@@ -303,17 +317,20 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       )}
 
       {phase === "reviewing_answer" && lastAnswer && (
-        <Card>
+        <Card className="animate-fade-in-up">
           <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle>Answer feedback</CardTitle>
-              <Badge variant="success">{lastAnswer.score}/100</Badge>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Sparkle className="size-5 text-[var(--brand-via)]" />
+                <CardTitle>Answer feedback</CardTitle>
+              </div>
+              <ScoreRing score={lastAnswer.score} size={64} label="" />
             </div>
-            <CardDescription>{lastAnswer.feedback}</CardDescription>
+            <CardDescription className="pt-1">{lastAnswer.feedback}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            <ScoreList title="Strengths" items={lastAnswer.strengths} />
-            <ScoreList title="Areas to improve" items={lastAnswer.improvements} />
+            <ScoreList title="Strengths" items={lastAnswer.strengths} kind="positive" />
+            <ScoreList title="Areas to improve" items={lastAnswer.improvements} kind="negative" />
             <Button onClick={handleContinue} className="w-fit">
               {pendingIsComplete ? "Continue" : "Next question"}
             </Button>
@@ -322,7 +339,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       )}
 
       {phase === "ready_to_complete" && (
-        <Card>
+        <Card className="animate-fade-in-up">
           <CardHeader>
             <CardTitle>All questions answered</CardTitle>
             <CardDescription>

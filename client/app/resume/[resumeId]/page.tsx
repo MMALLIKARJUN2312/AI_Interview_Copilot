@@ -1,9 +1,12 @@
 "use client";
 
+import { MessagesSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { ProtectedRoute } from "@/components/protected-route";
+import { ScoreList } from "@/components/score-list";
+import { ScoreRing } from "@/components/score-ring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,21 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, api } from "@/lib/api";
 import type { ResumeAnalysisResponse, ResumeSummary } from "@/lib/types";
-
-function ScoreList({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
-
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-medium">{title}</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        {items.map((item, index) => (
-          <li key={index}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 function ResumeDetail({ resumeId }: { resumeId: number }) {
   const router = useRouter();
@@ -95,7 +83,7 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-      <div className="mb-6 flex items-center justify-between gap-2">
+      <div className="animate-fade-in-up mb-6 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             {resume.target_role}
@@ -118,7 +106,7 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
       </div>
 
       {resume.status === "failed" && (
-        <Card className="mb-6">
+        <Card className="animate-fade-in-up mb-6">
           <CardContent className="text-sm text-destructive">
             Analysis failed for this resume. Please upload it again.
           </CardContent>
@@ -126,31 +114,33 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
       )}
 
       {analysis && (
-        <Card className="mb-6">
+        <Card className="animate-fade-in-up mb-6">
           <CardHeader>
-            <CardTitle>ATS Score</CardTitle>
-            <CardDescription>
-              How well this resume matches a &ldquo;{analysis.target_role}
-              &rdquo; hiring pipeline.
-            </CardDescription>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle>ATS Score</CardTitle>
+                <CardDescription className="mt-1">
+                  How well this resume matches a &ldquo;{analysis.target_role}
+                  &rdquo; hiring pipeline.
+                </CardDescription>
+              </div>
+              <ScoreRing score={analysis.ats_score} />
+            </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            <div className="text-4xl font-semibold tabular-nums">
-              {analysis.ats_score}
-              <span className="text-lg font-normal text-muted-foreground">
-                /100
-              </span>
-            </div>
-            <ScoreList title="Strengths" items={analysis.strengths} />
-            <ScoreList title="Weaknesses" items={analysis.weaknesses} />
-            <ScoreList title="Suggestions" items={analysis.suggestions} />
+            <ScoreList title="Strengths" items={analysis.strengths} kind="positive" />
+            <ScoreList title="Weaknesses" items={analysis.weaknesses} kind="negative" />
+            <ScoreList title="Suggestions" items={analysis.suggestions} kind="suggestion" />
           </CardContent>
         </Card>
       )}
 
       {resume.status === "analyzed" && (
-        <Card>
+        <Card className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
           <CardHeader>
+            <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-sm">
+              <MessagesSquare className="size-5" />
+            </div>
             <CardTitle>Start a mock interview</CardTitle>
             <CardDescription>
               Questions will be generated from this resume and role.
