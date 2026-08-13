@@ -1,5 +1,6 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -16,10 +17,13 @@ export function NavBar() {
   }
 
   return (
-    <header className="border-b border-border">
+    <header className="glass sticky top-0 z-40 border-x-0 border-t-0">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="font-semibold tracking-tight">
-          AI Interview Copilot
+        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-sm">
+            <Sparkles className="size-4" />
+          </span>
+          <span>AI Interview Copilot</span>
         </Link>
 
         <nav className="flex items-center gap-2">
@@ -27,7 +31,7 @@ export function NavBar() {
             <>
               <Link
                 href="/dashboard"
-                className="px-2 text-sm text-muted-foreground hover:text-foreground"
+                className="px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Dashboard
               </Link>
