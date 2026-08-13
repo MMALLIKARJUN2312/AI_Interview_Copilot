@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText, Inbox, MessagesSquare, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -24,6 +25,25 @@ function statusVariant(
   return "secondary";
 }
 
+function EmptyState({
+  icon: Icon,
+  message,
+}: {
+  icon: typeof Inbox;
+  message: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-6 text-center text-sm text-muted-foreground">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+          <Icon className="size-5" />
+        </div>
+        {message}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DashboardContent() {
   const [resumes, setResumes] = useState<ResumeSummary[] | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -40,31 +60,38 @@ function DashboardContent() {
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="animate-fade-in-up mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <Button asChild>
-          <Link href="/resume/new">Upload resume</Link>
+          <Link href="/resume/new">
+            <Plus className="size-4" />
+            Upload resume
+          </Link>
         </Button>
       </div>
 
       {error && <p className="mb-6 text-sm text-destructive">{error}</p>}
 
       <section className="mb-10">
-        <h2 className="mb-3 text-lg font-medium">Your resumes</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
+          <FileText className="size-4 text-muted-foreground" />
+          Your resumes
+        </h2>
         {resumes === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : resumes.length === 0 ? (
-          <Card>
-            <CardContent className="text-sm text-muted-foreground">
-              No resumes yet. Upload one to get a role-aligned ATS analysis
-              and start a mock interview.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Inbox}
+            message="No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {resumes.map((resume) => (
+            {resumes.map((resume, index) => (
               <Link key={resume.id} href={`/resume/${resume.id}`}>
-                <Card className="h-full transition-colors hover:border-foreground/30">
+                <Card
+                  className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-base">
@@ -86,20 +113,25 @@ function DashboardContent() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">Interview sessions</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
+          <MessagesSquare className="size-4 text-muted-foreground" />
+          Interview sessions
+        </h2>
         {sessions === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : sessions.length === 0 ? (
-          <Card>
-            <CardContent className="text-sm text-muted-foreground">
-              No mock interviews yet. Start one from a resume&apos;s page.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={MessagesSquare}
+            message="No mock interviews yet. Start one from a resume's page."
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {sessions.map((session) => (
+            {sessions.map((session, index) => (
               <Link key={session.id} href={`/interview/${session.id}`}>
-                <Card className="h-full transition-colors hover:border-foreground/30">
+                <Card
+                  className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-base">

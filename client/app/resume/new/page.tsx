@@ -1,5 +1,6 @@
 "use client";
 
+import { FileUp, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -56,8 +57,11 @@ function UploadResumeForm() {
 
   return (
     <div className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
-      <Card>
+      <Card className="glass-strong animate-fade-in-up">
         <CardHeader>
+          <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-sm">
+            <UploadCloud className="size-5" />
+          </div>
           <CardTitle className="text-xl">Upload your resume</CardTitle>
           <CardDescription>
             We analyze your resume specifically against the role you&apos;re
@@ -91,15 +95,31 @@ function UploadResumeForm() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="file">Resume (PDF)</Label>
-              <Input
-                id="file"
-                type="file"
-                accept="application/pdf"
-                required
-                onChange={(event) =>
-                  setFile(event.target.files?.[0] ?? null)
-                }
-              />
+              <label
+                htmlFor="file"
+                className="group flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-background/40 px-4 py-8 text-center transition-colors hover:border-ring hover:bg-background/60"
+              >
+                <FileUp className="size-6 text-muted-foreground transition-colors group-hover:text-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {file ? (
+                    <span className="font-medium text-foreground">
+                      {file.name}
+                    </span>
+                  ) : (
+                    "Click to choose a PDF file"
+                  )}
+                </span>
+                <Input
+                  id="file"
+                  type="file"
+                  accept="application/pdf"
+                  required
+                  className="sr-only"
+                  onChange={(event) =>
+                    setFile(event.target.files?.[0] ?? null)
+                  }
+                />
+              </label>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={isSubmitting} className="mt-2">
