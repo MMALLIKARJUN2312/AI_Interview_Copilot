@@ -52,7 +52,7 @@ export default function HomePage() {
       </div>
 
       <h1
-        className="animate-fade-in-up max-w-3xl text-balance text-center text-4xl font-semibold tracking-tight sm:text-6xl"
+        className="font-heading animate-fade-in-up max-w-3xl text-balance text-center text-4xl font-semibold tracking-tight sm:text-6xl"
         style={{ animationDelay: "0.05s" }}
       >
         Prep for{" "}

@@ -183,7 +183,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         <div className="animate-fade-in-up mb-6 flex items-center gap-2">
           <PartyPopper className="size-6 text-[var(--brand-via)]" />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
               Interview complete
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -269,7 +269,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
       <div className="animate-fade-in-up mb-3 flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
             Mock interview
           </h1>
           <p className="text-sm text-muted-foreground">

@@ -61,7 +61,7 @@ function DashboardContent() {
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
       <div className="animate-fade-in-up mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Dashboard</h1>
         <Button asChild>
           <Link href="/resume/new">
             <Plus className="size-4" />
