@@ -54,21 +54,23 @@
 }
 
 @utility glass {
-  background-color: color-mix(in oklch, var(--card) 68%, transparent);
-  backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+  background-color: color-mix(in oklch, var(--card) 60%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
   box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 25%, transparent),
     0 1px 1px color-mix(in oklch, var(--foreground) 4%, transparent),
-    0 12px 40px color-mix(in oklch, var(--foreground) 8%, transparent);
+    0 12px 40px color-mix(in oklch, var(--foreground) 10%, transparent);
 }
 
 @utility glass-strong {
-  background-color: color-mix(in oklch, var(--card) 85%, transparent);
-  backdrop-filter: blur(24px);
-  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  background-color: color-mix(in oklch, var(--card) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
   box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 30%, transparent),
     0 1px 1px color-mix(in oklch, var(--foreground) 4%, transparent),
-    0 20px 60px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 20px 60px color-mix(in oklch, var(--foreground) 12%, transparent);
 }
 
 @utility text-gradient-brand {
@@ -88,7 +90,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -209,8 +211,9 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(60rem 30rem at 15% -10%, color-mix(in oklch, var(--brand-from) 16%, transparent), transparent),
-      radial-gradient(50rem 25rem at 110% 10%, color-mix(in oklch, var(--brand-to) 14%, transparent), transparent);
+      radial-gradient(60rem 30rem at 15% -10%, color-mix(in oklch, var(--brand-from) 22%, transparent), transparent),
+      radial-gradient(50rem 25rem at 110% 10%, color-mix(in oklch, var(--brand-to) 20%, transparent), transparent),
+      radial-gradient(40rem 20rem at 50% 120%, color-mix(in oklch, var(--brand-via) 14%, transparent), transparent);
     background-attachment: fixed;
   }
   html {

@@ -5,25 +5,25 @@ export function BackgroundBlobs() {
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
       <div
-        className="animate-blob absolute -top-40 -left-32 h-[32rem] w-[32rem] rounded-full opacity-40 blur-3xl"
+        className="animate-blob absolute -top-40 -left-32 h-[36rem] w-[36rem] rounded-full opacity-60 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at center, var(--brand-from), transparent 70%)",
+            "radial-gradient(circle at center, var(--brand-from), transparent 72%)",
         }}
       />
       <div
-        className="animate-blob absolute top-1/3 -right-40 h-[28rem] w-[28rem] rounded-full opacity-30 blur-3xl"
+        className="animate-blob absolute top-1/3 -right-44 h-[32rem] w-[32rem] rounded-full opacity-50 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at center, var(--brand-to), transparent 70%)",
+            "radial-gradient(circle at center, var(--brand-to), transparent 72%)",
           animationDelay: "-6s",
         }}
       />
       <div
-        className="animate-blob absolute -bottom-32 left-1/4 h-[26rem] w-[26rem] rounded-full opacity-25 blur-3xl"
+        className="animate-blob absolute -bottom-36 left-1/4 h-[30rem] w-[30rem] rounded-full opacity-45 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at center, var(--brand-via), transparent 70%)",
+            "radial-gradient(circle at center, var(--brand-via), transparent 72%)",
           animationDelay: "-11s",
         }}
       />
