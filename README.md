@@ -14,7 +14,8 @@ per-answer feedback, an overall assessment, and a personalized learning roadmap.
 - **Migrations**: Alembic
 - **Auth**: JWT access tokens + rotating opaque refresh tokens
 - **Storage**: pluggable resume storage backend (local disk by default, S3 opt-in)
-- **Deployment**: Docker Compose (Postgres + API)
+- **Deployment**: Docker Compose (dev: Postgres + API; prod: Postgres + API + frontend,
+  see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md))
 
 ## Running locally with Docker
 
@@ -90,6 +91,7 @@ limited per IP (see `app/core/rate_limit.py` for the exact limits); disable via
 
 Full loop works end-to-end: resume upload → role-aligned mock interview → feedback →
 roadmap, with a working frontend, refresh-token auth, rate limiting, pluggable resume
-storage, and a pytest suite. Still open: CI, pgvector-grounded question generation
-(currently pure zero-shot), and a persistent Redis-backed rate-limit store (current
-limiter is in-memory, fine for a single instance).
+storage, a pytest suite, CI (backend tests, migration check, frontend build), and
+production Docker images for both services. Still open: pgvector-grounded question
+generation (currently pure zero-shot), and a persistent Redis-backed rate-limit store
+(current limiter is in-memory, fine for a single instance).
