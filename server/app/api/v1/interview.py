@@ -23,6 +23,8 @@ from app.schemas.interview import (
     AnswerResponse,
     FeedbackResponse,
     RoadmapResponse,
+    RunCodeRequest,
+    RunCodeResponse,
 )
 from app.services.interview_service import InterviewService
 
@@ -51,7 +53,8 @@ def start_interview(
             payload.resume_id, current_user.id
         )
         session = interview_service.start_session(
-            db, current_user.id, payload.resume_id, payload.num_questions
+            db, current_user.id, payload.resume_id,
+            [round_config.model_dump() for round_config in payload.rounds],
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -77,7 +80,8 @@ def submit_answer(
 ):
     try:
         answer = interview_service.submit_answer(
-            db, current_user.id, session_id, payload.question_id, payload.answer_text
+            db, current_user.id, session_id, payload.question_id,
+            answer_text=payload.answer_text, code=payload.code, language=payload.language,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -91,6 +95,39 @@ def submit_answer(
         answer=AnswerResponse.model_validate(answer),
         next_question=QuestionResponse.model_validate(next_question) if next_question else None,
         is_complete=next_question is None,
+    )
+
+@router.post('/{session_id}/run-code', response_model=RunCodeResponse)
+@limiter.limit("30/hour")
+def run_code(
+    request : Request,
+    session_id : int,
+    payload : RunCodeRequest,
+    current_user : User = Depends(get_current_user),
+    db : Session = Depends(get_db),
+):
+    try:
+        results = interview_service.run_code(
+            db, current_user.id, session_id, payload.question_id, payload.code, payload.language
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception:
+        logger.exception("Failed to run candidate code")
+        raise HTTPException(status_code=500, detail="Failed to run code")
+
+    return RunCodeResponse(
+        results=[
+            {
+                "input": result.input,
+                "expected_output": result.expected_output,
+                "actual_output": result.actual_output,
+                "passed": result.passed,
+                "stderr": result.stderr,
+            }
+            for result in results
+        ],
+        all_passed=all(result.passed for result in results),
     )
 
 @router.post('/{session_id}/complete', response_model=CompleteInterviewResponse)
