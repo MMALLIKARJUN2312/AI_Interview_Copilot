@@ -47,12 +47,35 @@ export interface SessionSummary {
   completed_at: string | null;
 }
 
+export type RoundType = "dsa_coding" | "machine_coding" | "general";
+
+export type CodeLanguage = "python" | "javascript" | "java" | "cpp";
+
+export interface TestCase {
+  input: string;
+  expected_output: string;
+}
+
 export interface QuestionResponse {
   id: number;
   order_index: number;
   question_text: string;
   category: string;
   difficulty: string;
+  round_type: RoundType;
+  language: string | null;
+  starter_code: string | null;
+  examples: string | null;
+  constraints: string | null;
+  test_cases: TestCase[];
+}
+
+export interface ExecutionResult {
+  input: string;
+  expected_output: string;
+  actual_output: string;
+  passed: boolean;
+  stderr: string;
 }
 
 export interface AnswerResponse {
@@ -62,6 +85,20 @@ export interface AnswerResponse {
   feedback: string;
   strengths: string[];
   improvements: string[];
+  language: string | null;
+  passed_test_count: number | null;
+  total_test_count: number | null;
+  execution_results: ExecutionResult[] | null;
+}
+
+export interface RoundConfig {
+  round_type: RoundType;
+  num_questions: number;
+}
+
+export interface RunCodeResponse {
+  results: ExecutionResult[];
+  all_passed: boolean;
 }
 
 export interface QuestionWithAnswer extends QuestionResponse {

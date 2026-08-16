@@ -2,6 +2,8 @@ import type {
   CompleteInterviewResponse,
   ResumeAnalysisResponse,
   ResumeSummary,
+  RoundConfig,
+  RunCodeResponse,
   SessionDetailResponse,
   SessionSummary,
   StartInterviewResponse,
@@ -200,12 +202,12 @@ export const api = {
     return request<ResumeAnalysisResponse>(`/resume/${resumeId}/analysis`);
   },
 
-  startInterview(payload: { resumeId: number; numQuestions: number }) {
+  startInterview(payload: { resumeId: number; rounds?: RoundConfig[] }) {
     return request<StartInterviewResponse>("/interview/start", {
       method: "POST",
       body: JSON.stringify({
         resume_id: payload.resumeId,
-        num_questions: payload.numQuestions,
+        ...(payload.rounds ? { rounds: payload.rounds } : {}),
       }),
     });
   },
@@ -213,7 +215,9 @@ export const api = {
   submitAnswer(payload: {
     sessionId: number;
     questionId: number;
-    answerText: string;
+    answerText?: string;
+    code?: string;
+    language?: string;
   }) {
     return request<SubmitAnswerResponse>(
       `/interview/${payload.sessionId}/answer`,
@@ -221,10 +225,28 @@ export const api = {
         method: "POST",
         body: JSON.stringify({
           question_id: payload.questionId,
-          answer_text: payload.answerText,
+          answer_text: payload.answerText ?? null,
+          code: payload.code ?? null,
+          language: payload.language ?? null,
         }),
       },
     );
+  },
+
+  runCode(payload: {
+    sessionId: number;
+    questionId: number;
+    code: string;
+    language: string;
+  }) {
+    return request<RunCodeResponse>(`/interview/${payload.sessionId}/run-code`, {
+      method: "POST",
+      body: JSON.stringify({
+        question_id: payload.questionId,
+        code: payload.code,
+        language: payload.language,
+      }),
+    });
   },
 
   completeInterview(sessionId: number) {
