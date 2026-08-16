@@ -219,7 +219,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   if (phase === "loading") {
     return (
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 text-sm text-muted-foreground">
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 text-sm text-muted-foreground">
         Loading…
       </div>
     );
@@ -227,7 +227,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   if (phase === "error") {
     return (
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
         <p className="text-sm text-destructive">{error}</p>
       </div>
     );
@@ -235,7 +235,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   if (phase === "completed") {
     return (
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
         <div className="animate-fade-in-up mb-6 flex items-center gap-2">
           <PartyPopper className="size-6 text-[var(--brand-via)]" />
           <div>
@@ -326,7 +326,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const wide = isCodingRound(currentQuestion) && phase === "answering";
 
   return (
-    <div className={`mx-auto w-full flex-1 px-4 py-10 ${wide ? "max-w-4xl" : "max-w-2xl"}`}>
+    <div className={`mx-auto w-full flex-1 px-4 py-10 ${wide ? "max-w-4xl" : "max-w-3xl"}`}>
       <div className="animate-fade-in-up mb-3 flex items-center justify-between gap-2">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
