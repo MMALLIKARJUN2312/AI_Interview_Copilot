@@ -1,8 +1,9 @@
 # AI Interview Copilot
 
 AI-powered interview preparation platform: upload a resume for a target role, get a
-role-aligned ATS analysis, then take a role-aligned AI mock interview that produces
-per-answer feedback, an overall assessment, and a personalized learning roadmap.
+role-aligned ATS analysis, then take a role-aligned AI mock interview - across DSA
+coding, machine coding, and general/behavioral rounds - that produces per-answer
+feedback, an overall assessment, and a personalized learning roadmap.
 
 ## Architecture
 
@@ -74,14 +75,25 @@ AI provider, so no live database, Gemini API key, or network access is required.
    `job_description`); returns a role-aware ATS score, strengths, weaknesses, and
    suggestions. The resume and analysis are persisted; the file itself goes through
    the configured storage backend (local disk or S3).
-4. `POST /interview/start` — generates a set of interview questions grounded in that
-   specific resume and role.
-5. `POST /interview/{id}/answer` — submit an answer to the current question; returns
-   an AI-scored evaluation and the next question.
-6. `POST /interview/{id}/complete` — once all questions are answered, produces an
+4. `POST /interview/start` — generates a round-based interview (any mix of
+   `dsa_coding`, `machine_coding`, `general` rounds, each with its own question
+   count) grounded in that specific resume and role.
+5. `POST /interview/{id}/run-code` — execute submitted code for a coding-round
+   question against its visible test cases (or once, unscored, for machine-coding
+   tasks) without recording an answer - for iterating before submitting.
+6. `POST /interview/{id}/answer` — submit an answer to the current question (free
+   text for general rounds, code + language for coding rounds); returns an
+   AI-scored evaluation - blended with real test-case pass/fail for DSA questions -
+   and the next question.
+7. `POST /interview/{id}/complete` — once all questions are answered, produces an
    overall performance summary and a personalized learning roadmap.
-7. `GET /interview/{id}`, `GET /interview/sessions`, `GET /resume/` — review history.
-8. `GET /health` — liveness probe for orchestration/load balancers.
+8. `GET /interview/{id}`, `GET /interview/sessions`, `GET /resume/` — review history.
+9. `GET /health` — liveness probe for orchestration/load balancers.
+
+Coding-round questions are judged by actually executing the candidate's code (via a
+[Piston](https://github.com/engineer-man/piston)-compatible execution API, see
+`app/services/code_execution_service.py`) against input/output test cases - not just
+an AI's opinion of the code.
 
 Auth, resume-analysis, and interview-generation/answer/complete endpoints are rate
 limited per IP (see `app/core/rate_limit.py` for the exact limits); disable via
@@ -89,9 +101,12 @@ limited per IP (see `app/core/rate_limit.py` for the exact limits); disable via
 
 ## Status
 
-Full loop works end-to-end: resume upload → role-aligned mock interview → feedback →
-roadmap, with a working frontend, refresh-token auth, rate limiting, pluggable resume
-storage, a pytest suite, CI (backend tests, migration check, frontend build), and
-production Docker images for both services. Still open: pgvector-grounded question
-generation (currently pure zero-shot), and a persistent Redis-backed rate-limit store
-(current limiter is in-memory, fine for a single instance).
+Full loop works end-to-end: resume upload → role-aligned, multi-round mock interview
+(DSA coding with real test-case execution, machine coding, general/behavioral) →
+feedback → roadmap, with a working frontend (Monaco-based code editor, self-hosted -
+no CDN dependency), refresh-token auth, rate limiting, pluggable resume storage, a
+pytest suite, CI (backend tests, migration check, frontend build, Docker image
+builds), and production Docker images for both services. Still open: pgvector-grounded
+question generation (currently pure zero-shot), a persistent Redis-backed rate-limit
+store (current limiter is in-memory, fine for a single instance), and video/voice-based
+interview delivery (current format is text/code-based).

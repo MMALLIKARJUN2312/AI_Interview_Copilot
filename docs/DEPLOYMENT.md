@@ -120,7 +120,19 @@ the image does not run migrations automatically on its own.
 | `CORS_ORIGINS` | server | must exactly match the frontend's origin(s) |
 | `RATE_LIMIT_ENABLED` | server | keep `true` in production |
 | `STORAGE_BACKEND` | server | `local` or `s3`, see below |
+| `CODE_EXECUTION_API_URL` | server | Piston-compatible code execution backend, see below |
 | `NEXT_PUBLIC_API_URL` | client (build-time) | public URL the browser calls |
+
+## Code execution (DSA / machine-coding rounds)
+
+Coding-round questions execute candidate-submitted code via a
+[Piston](https://github.com/engineer-man/piston)-compatible API, configured by
+`CODE_EXECUTION_API_URL` (defaults to the free public instance,
+`https://emkc.org/api/v2/piston`). The public instance is rate-limited and not
+meant for production load — self-host Piston (a single Docker container) and
+point `CODE_EXECUTION_API_URL` at it before taking real traffic. All code
+execution sandboxing happens entirely inside Piston; this app never executes
+candidate code itself.
 
 ## Resume storage
 
