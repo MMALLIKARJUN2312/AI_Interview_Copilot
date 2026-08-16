@@ -24,7 +24,7 @@ export function NavBar() {
           <span className="flex size-7 items-center justify-center rounded-lg bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-sm">
             <Sparkles className="size-4" />
           </span>
-          <span>AI Interview Copilot</span>
+          <span className="hidden sm:inline">AI Interview Copilot</span>
         </Link>
 
         <nav className="flex items-center gap-2">
@@ -36,8 +36,11 @@ export function NavBar() {
               >
                 Dashboard
               </Link>
-              <span className="hidden px-2 text-sm text-muted-foreground sm:inline">
-                {user.email}
+              <span
+                className="hidden px-2 text-sm text-muted-foreground sm:inline"
+                title={user.email}
+              >
+                {user.full_name}
               </span>
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={handleLogout}>
