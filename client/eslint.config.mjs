@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated at install time (scripts/copy-monaco-assets.js) - not source.
+    "public/monaco/**",
+    // Plain CommonJS Node build script, not part of the app's TS/ESM code.
+    "scripts/**",
   ]),
 ]);
 

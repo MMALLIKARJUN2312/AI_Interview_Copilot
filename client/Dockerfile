@@ -3,7 +3,10 @@ FROM node:20-slim AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: postinstall (scripts/copy-monaco-assets.js) needs the
+# rest of the repo, which isn't copied into this stage - it runs explicitly
+# in the builder stage below instead, after the full source is present.
+RUN npm ci --ignore-scripts
 
 FROM node:20-slim AS builder
 
@@ -11,6 +14,8 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+RUN node scripts/copy-monaco-assets.js
 
 # Next.js inlines NEXT_PUBLIC_* variables into the client bundle at build
 # time, so the API URL must be supplied as a build arg, not a runtime env var.
