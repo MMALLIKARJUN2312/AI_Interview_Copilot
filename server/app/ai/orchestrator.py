@@ -1,4 +1,5 @@
-from app.ai.client import AIClient, GeminiProvider
+from app.ai.client import AIClient
+from app.ai.providers import build_ai_provider_chain
 from app.ai.models import (
     AIGenerationResult,
     ResumeAnalysisResult,
@@ -17,7 +18,7 @@ class AIOrchestrator:
     """
 
     def __init__(self) -> None:
-        self.client = AIClient(provider=GeminiProvider())
+        self.client = AIClient(provider=build_ai_provider_chain())
 
     def analyze_resume(
         self,
