@@ -20,6 +20,14 @@ class InterviewSessionStatus(str, Enum):
     COMPLETED = "completed"
     ABANDONED = "abandoned"
 
+class RoundType(str, Enum):
+    """Which kind of interview round a question belongs to, mirroring the
+    distinct stages of a real interview loop.
+    """
+    DSA_CODING = "dsa_coding"
+    MACHINE_CODING = "machine_coding"
+    GENERAL = "general"
+
 class InterviewSession(PrimaryKeyMixin, TimestampMixin, Base):
     """A single role-aligned mock interview attempt tied to one resume."""
 
@@ -62,6 +70,17 @@ class InterviewQuestion(PrimaryKeyMixin, TimestampMixin, Base):
     question_text : Mapped[str] = mapped_column(Text, nullable=False)
     category : Mapped[str] = mapped_column(String(50), nullable=False)
     difficulty : Mapped[str] = mapped_column(String(20), nullable=False)
+    round_type : Mapped[RoundType] = mapped_column(
+        SQLEnum(RoundType, name="interview_round_type"),
+        default=RoundType.GENERAL,
+        nullable=False,
+    )
+    # Coding-round-only fields (dsa_coding / machine_coding); unused (null) for general questions.
+    language : Mapped[str | None] = mapped_column(String(20), nullable=True)
+    starter_code : Mapped[str | None] = mapped_column(Text, nullable=True)
+    examples : Mapped[str | None] = mapped_column(Text, nullable=True)
+    constraints : Mapped[str | None] = mapped_column(Text, nullable=True)
+    test_cases : Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     session : Mapped["InterviewSession"] = relationship(back_populates="questions")
     answer : Mapped["InterviewAnswer | None"] = relationship(
@@ -81,6 +100,12 @@ class InterviewAnswer(PrimaryKeyMixin, TimestampMixin, Base):
     feedback : Mapped[str] = mapped_column(Text, nullable=False)
     strengths : Mapped[list] = mapped_column(JSON, nullable=False)
     improvements : Mapped[list] = mapped_column(JSON, nullable=False)
+    # Coding-round-only fields; unused (null) for general answers. answer_text
+    # holds the submitted source code for coding questions.
+    language : Mapped[str | None] = mapped_column(String(20), nullable=True)
+    execution_results : Mapped[list | None] = mapped_column(JSON, nullable=True)
+    passed_test_count : Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_test_count : Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     question : Mapped["InterviewQuestion"] = relationship(back_populates="answer")
 
