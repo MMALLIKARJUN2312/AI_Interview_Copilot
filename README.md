@@ -11,7 +11,9 @@ feedback, an overall assessment, and a personalized learning roadmap.
   upload/analysis, and the full mock-interview flow.
 - **Backend**: FastAPI (`server/`)
 - **Database**: PostgreSQL (+ pgvector extension, provisioned for future embeddings-based features)
-- **AI**: Gemini (provider-abstracted; OpenAI/OpenRouter can be added behind the same interface)
+- **AI**: provider-agnostic with automatic cloud failover — configure an ordered chain
+  (e.g. Gemini → Groq → OpenRouter) via `AI_PROVIDER_CHAIN`; each is retried a few times,
+  then the chain falls through to the next on failure (see `app/ai/providers.py`)
 - **Migrations**: Alembic
 - **Auth**: JWT access tokens + rotating opaque refresh tokens
 - **Storage**: pluggable resume storage backend (local disk by default, S3 opt-in)
@@ -64,6 +66,25 @@ pytest
 
 Tests run against an in-memory SQLite database with rate limiting disabled and a faked
 AI provider, so no live database, Gemini API key, or network access is required.
+
+## AI provider configuration
+
+`AI_PROVIDER_CHAIN` (in `server/.env`) is a comma-separated, ordered list of providers
+to try — e.g. `AI_PROVIDER_CHAIN=gemini,groq,openrouter`. Each is retried transiently a
+few times before the chain falls through to the next, so a single provider outage or
+rate limit doesn't take the app down. Only the providers actually listed need their API
+key set. Built in:
+
+| Provider | Env var | Notes |
+|---|---|---|
+| `gemini` | `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `groq` | `GROQ_API_KEY` | free tier, fast inference — [console.groq.com](https://console.groq.com) |
+| `openrouter` | `OPENROUTER_API_KEY` | aggregates many models, some free — [openrouter.ai](https://openrouter.ai) |
+
+Adding another OpenAI-compatible provider (Together AI, a self-hosted LM Studio/Ollama
+instance, etc.) is a few lines in `PROVIDER_BUILDERS` (`app/ai/providers.py`) — they all
+share one `OpenAICompatibleProvider` adapter, since they speak the same Chat Completions
+API; only the base URL and model differ.
 
 ## Core flow
 

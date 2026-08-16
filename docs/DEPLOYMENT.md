@@ -14,7 +14,11 @@ point the platform at `server/Dockerfile` and `client/Dockerfile` directly — t
 ## Prerequisites
 
 - Docker and Docker Compose v2 (`docker compose version`)
-- A Gemini API key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- At least one AI provider API key — Gemini
+  ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) and/or Groq
+  ([console.groq.com](https://console.groq.com)) and/or OpenRouter
+  ([openrouter.ai](https://openrouter.ai)); see [AI provider configuration](../README.md#ai-provider-configuration)
+  in the README
 - A domain (or IP) the two services will be reachable at, so you can fill in
   `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` correctly before building
 
@@ -30,7 +34,9 @@ At minimum, set for production:
 
 - `JWT_SECRET` — a long random value (`openssl rand -hex 32`), different from any
   value used in development
-- `GEMINI_API_KEY` — your real key
+- `AI_PROVIDER_CHAIN` and the API key(s) for whichever providers you list in it —
+  production should list more than one (e.g. `gemini,groq`) so a single provider
+  outage or rate limit doesn't take the app down
 - `CORS_ORIGINS` — the exact origin(s) the frontend is served from, e.g.
   `https://app.example.com` (no trailing slash, comma-separate multiple origins)
 - `RATE_LIMIT_ENABLED=true`
@@ -116,7 +122,8 @@ the image does not run migrations automatically on its own.
 |---|---|---|
 | `DATABASE_URL` | server | `postgresql://user:pass@host:5432/db` |
 | `JWT_SECRET` | server | rotate this and all issued tokens become invalid |
-| `GEMINI_API_KEY` | server | |
+| `AI_PROVIDER_CHAIN` | server | ordered provider list, see [README](../README.md#ai-provider-configuration) |
+| `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` | server | only required for providers listed in the chain |
 | `CORS_ORIGINS` | server | must exactly match the frontend's origin(s) |
 | `RATE_LIMIT_ENABLED` | server | keep `true` in production |
 | `STORAGE_BACKEND` | server | `local` or `s3`, see below |
