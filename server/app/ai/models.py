@@ -40,6 +40,33 @@ class InterviewQuestionSetResult(BaseModel):
 
     questions : list[InterviewQuestionItem]
 
+class TestCaseItem(BaseModel):
+    """A single input/output test case for a coding question"""
+
+    input : str
+    expected_output : str
+    hidden : bool = Field(
+        default=False,
+        description="Hidden test cases are used for scoring but never shown to the candidate",
+    )
+
+class CodingQuestionItem(BaseModel):
+    """A single AI-generated coding question (DSA or machine coding)"""
+
+    question : str = Field(description="The full problem statement")
+    difficulty : str = Field(description="easy, medium, or hard")
+    examples : str = Field(default="", description="Human-readable worked examples")
+    constraints : str = Field(default="", description="Input size / edge-case constraints, if any")
+    test_cases : list[TestCaseItem] = Field(
+        default_factory=list,
+        description="Input/output test cases; empty for open-ended machine-coding tasks",
+    )
+
+class CodingQuestionSetResult(BaseModel):
+    """Standardized AI response for coding question generation"""
+
+    questions : list[CodingQuestionItem]
+
 class AnswerEvaluationResult(BaseModel):
     """Standardized AI response for evaluating a single interview answer"""
 

@@ -5,6 +5,11 @@ from app.ai.prompts.interview import (
     InterviewSummaryPrompt,
     LearningRoadmapPrompt,
 )
+from app.ai.prompts.coding import (
+    DSACodingQuestionPrompt,
+    MachineCodingQuestionPrompt,
+    CodeReviewPrompt,
+)
 
 class PromptRegistry:
     """central registry for all prompt builders"""
@@ -28,3 +33,15 @@ class PromptRegistry:
     @staticmethod
     def learning_roadmap() -> LearningRoadmapPrompt:
         return LearningRoadmapPrompt()
+
+    @staticmethod
+    def dsa_coding_question() -> DSACodingQuestionPrompt:
+        return DSACodingQuestionPrompt()
+
+    @staticmethod
+    def machine_coding_question() -> MachineCodingQuestionPrompt:
+        return MachineCodingQuestionPrompt()
+
+    @staticmethod
+    def code_review() -> CodeReviewPrompt:
+        return CodeReviewPrompt()
