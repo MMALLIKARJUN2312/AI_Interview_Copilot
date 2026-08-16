@@ -1,11 +1,13 @@
 "use client";
 
-import { PartyPopper, Sparkle } from "lucide-react";
+import { Code2, Laptop2, MessagesSquare, PartyPopper, PlayCircle, Sparkle } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
+import { CodeEditor, STARTER_TEMPLATES } from "@/components/code-editor";
 import { ProtectedRoute } from "@/components/protected-route";
 import { ScoreList } from "@/components/score-list";
 import { ScoreRing } from "@/components/score-ring";
+import { TestCaseResults } from "@/components/test-case-results";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +21,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError, api } from "@/lib/api";
 import type {
   AnswerResponse,
+  CodeLanguage,
+  ExecutionResult,
   FeedbackResponse,
   QuestionResponse,
   RoadmapResponse,
+  RoundType,
   SessionSummary,
 } from "@/lib/types";
 
@@ -32,6 +37,12 @@ type Phase =
   | "reviewing_answer"
   | "ready_to_complete"
   | "completed";
+
+const ROUND_META: Record<RoundType, { label: string; icon: typeof Code2 }> = {
+  dsa_coding: { label: "DSA coding round", icon: Code2 },
+  machine_coding: { label: "Machine coding round", icon: Laptop2 },
+  general: { label: "General round", icon: MessagesSquare },
+};
 
 function ProgressBar({ answered, total }: { answered: number; total: number }) {
   const pct = total > 0 ? Math.min(100, (answered / total) * 100) : 0;
@@ -46,6 +57,10 @@ function ProgressBar({ answered, total }: { answered: number; total: number }) {
   );
 }
 
+function isCodingRound(question : QuestionResponse | null) {
+  return question !== null && question.round_type !== "general";
+}
+
 function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +68,10 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [currentQuestion, setCurrentQuestion] =
     useState<QuestionResponse | null>(null);
   const [answerText, setAnswerText] = useState("");
+  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState<CodeLanguage>("python");
+  const [runResults, setRunResults] = useState<ExecutionResult[] | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<AnswerResponse | null>(null);
   const [pendingNextQuestion, setPendingNextQuestion] =
@@ -62,6 +81,16 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const [roadmap, setRoadmap] = useState<RoadmapResponse | null>(null);
+
+  function loadQuestion(question: QuestionResponse) {
+    setCurrentQuestion(question);
+    setAnswerText("");
+    setRunResults(null);
+    if (isCodingRound(question)) {
+      setLanguage("python");
+      setCode(STARTER_TEMPLATES.python);
+    }
+  }
 
   useEffect(() => {
     api
@@ -86,7 +115,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         const next = sorted.find((question) => !question.answer) ?? null;
 
         if (next) {
-          setCurrentQuestion(next);
+          loadQuestion(next);
           setPhase("answering");
         } else {
           setPhase("ready_to_complete");
@@ -98,8 +127,36 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       });
   }, [sessionId]);
 
+  async function handleRunCode() {
+    if (!currentQuestion || !code.trim()) return;
+
+    setError(null);
+    setIsRunning(true);
+
+    try {
+      const result = await api.runCode({
+        sessionId,
+        questionId: currentQuestion.id,
+        code,
+        language,
+      });
+      setRunResults(result.results);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not run your code. Please try again.",
+      );
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
   async function handleSubmitAnswer() {
-    if (!currentQuestion || !answerText.trim()) return;
+    if (!currentQuestion) return;
+    const isCoding = isCodingRound(currentQuestion);
+    if (isCoding && !code.trim()) return;
+    if (!isCoding && !answerText.trim()) return;
 
     setError(null);
     setIsSubmitting(true);
@@ -108,7 +165,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       const result = await api.submitAnswer({
         sessionId,
         questionId: currentQuestion.id,
-        answerText,
+        ...(isCoding ? { code, language } : { answerText }),
       });
 
       setLastAnswer(result.answer);
@@ -128,11 +185,10 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   }
 
   function handleContinue() {
-    setAnswerText("");
     setLastAnswer(null);
 
     if (pendingNextQuestion) {
-      setCurrentQuestion(pendingNextQuestion);
+      loadQuestion(pendingNextQuestion);
       setPendingNextQuestion(null);
       setPhase("answering");
     } else if (pendingIsComplete) {
@@ -265,8 +321,12 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
     );
   }
 
+  const roundMeta = currentQuestion ? ROUND_META[currentQuestion.round_type] : null;
+  const RoundIcon = roundMeta?.icon ?? MessagesSquare;
+  const wide = isCodingRound(currentQuestion) && phase === "answering";
+
   return (
-    <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+    <div className={`mx-auto w-full flex-1 px-4 py-10 ${wide ? "max-w-4xl" : "max-w-2xl"}`}>
       <div className="animate-fade-in-up mb-3 flex items-center justify-between gap-2">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
@@ -291,27 +351,74 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         <Card className="animate-fade-in-up" key={currentQuestion.id}>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">{currentQuestion.category}</Badge>
+              <Badge variant="outline" className="gap-1">
+                <RoundIcon className="size-3" />
+                {roundMeta?.label}
+              </Badge>
               <Badge variant="outline">{currentQuestion.difficulty}</Badge>
             </div>
-            <CardTitle className="text-lg font-normal">
+            <CardTitle className="text-lg font-normal whitespace-pre-line">
               {currentQuestion.question_text}
             </CardTitle>
+            {currentQuestion.examples && (
+              <CardDescription className="mt-2 whitespace-pre-line">
+                <span className="font-medium text-foreground">Examples: </span>
+                {currentQuestion.examples}
+              </CardDescription>
+            )}
+            {currentQuestion.constraints && (
+              <CardDescription className="mt-1 whitespace-pre-line">
+                <span className="font-medium text-foreground">Constraints: </span>
+                {currentQuestion.constraints}
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <Textarea
-              rows={7}
-              placeholder="Type your answer…"
-              value={answerText}
-              onChange={(event) => setAnswerText(event.target.value)}
-            />
-            <Button
-              onClick={handleSubmitAnswer}
-              disabled={isSubmitting || !answerText.trim()}
-              className="w-fit"
-            >
-              {isSubmitting ? "Submitting…" : "Submit answer"}
-            </Button>
+            {isCodingRound(currentQuestion) ? (
+              <>
+                <CodeEditor
+                  language={language}
+                  code={code}
+                  onLanguageChange={setLanguage}
+                  onCodeChange={setCode}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleRunCode}
+                    disabled={isRunning || !code.trim()}
+                    className="w-fit"
+                  >
+                    <PlayCircle className="size-4" />
+                    {isRunning ? "Running…" : "Run"}
+                  </Button>
+                  <Button
+                    onClick={handleSubmitAnswer}
+                    disabled={isSubmitting || !code.trim()}
+                    className="w-fit"
+                  >
+                    {isSubmitting ? "Submitting…" : "Submit"}
+                  </Button>
+                </div>
+                {runResults && <TestCaseResults results={runResults} />}
+              </>
+            ) : (
+              <>
+                <Textarea
+                  rows={7}
+                  placeholder="Type your answer…"
+                  value={answerText}
+                  onChange={(event) => setAnswerText(event.target.value)}
+                />
+                <Button
+                  onClick={handleSubmitAnswer}
+                  disabled={isSubmitting || !answerText.trim()}
+                  className="w-fit"
+                >
+                  {isSubmitting ? "Submitting…" : "Submit answer"}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -329,6 +436,14 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
             <CardDescription className="pt-1">{lastAnswer.feedback}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
+            {lastAnswer.total_test_count !== null && (
+              <Badge variant={lastAnswer.passed_test_count === lastAnswer.total_test_count ? "success" : "secondary"}>
+                {lastAnswer.passed_test_count}/{lastAnswer.total_test_count} test cases passed
+              </Badge>
+            )}
+            {lastAnswer.execution_results && lastAnswer.execution_results.length > 0 && (
+              <TestCaseResults results={lastAnswer.execution_results} />
+            )}
             <ScoreList title="Strengths" items={lastAnswer.strengths} kind="positive" />
             <ScoreList title="Areas to improve" items={lastAnswer.improvements} kind="negative" />
             <Button onClick={handleContinue} className="w-fit">

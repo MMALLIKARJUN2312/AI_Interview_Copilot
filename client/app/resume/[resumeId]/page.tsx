@@ -1,6 +1,6 @@
 "use client";
 
-import { MessagesSquare } from "lucide-react";
+import { Code2, Laptop2, MessagesSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
@@ -17,9 +17,46 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ApiError, api } from "@/lib/api";
-import type { ResumeAnalysisResponse, ResumeSummary } from "@/lib/types";
+import type {
+  ResumeAnalysisResponse,
+  ResumeSummary,
+  RoundType,
+} from "@/lib/types";
+
+const ROUND_OPTIONS: {
+  round_type: RoundType;
+  icon: typeof Code2;
+  title: string;
+  description: string;
+  defaultEnabled: boolean;
+  defaultCount: number;
+}[] = [
+  {
+    round_type: "dsa_coding",
+    icon: Code2,
+    title: "DSA coding round",
+    description: "Algorithmic problems judged by real input/output test cases.",
+    defaultEnabled: true,
+    defaultCount: 2,
+  },
+  {
+    round_type: "machine_coding",
+    icon: Laptop2,
+    title: "Machine coding round",
+    description: "Build a small working system, reviewed on design and correctness.",
+    defaultEnabled: true,
+    defaultCount: 1,
+  },
+  {
+    round_type: "general",
+    icon: MessagesSquare,
+    title: "General round",
+    description: "Behavioral, technical, and system-design questions, answered in writing.",
+    defaultEnabled: true,
+    defaultCount: 2,
+  },
+];
 
 function ResumeDetail({ resumeId }: { resumeId: number }) {
   const router = useRouter();
@@ -28,7 +65,14 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
     null,
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [numQuestions, setNumQuestions] = useState(5);
+  const [roundState, setRoundState] = useState(() =>
+    Object.fromEntries(
+      ROUND_OPTIONS.map((option) => [
+        option.round_type,
+        { enabled: option.defaultEnabled, count: option.defaultCount },
+      ]),
+    ) as Record<RoundType, { enabled: boolean; count: number }>,
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -50,10 +94,23 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
 
   async function handleStartInterview() {
     setStartError(null);
+
+    const rounds = ROUND_OPTIONS.filter(
+      (option) => roundState[option.round_type].enabled,
+    ).map((option) => ({
+      round_type: option.round_type,
+      num_questions: roundState[option.round_type].count,
+    }));
+
+    if (rounds.length === 0) {
+      setStartError("Select at least one round to include.");
+      return;
+    }
+
     setIsStarting(true);
 
     try {
-      const result = await api.startInterview({ resumeId, numQuestions });
+      const result = await api.startInterview({ resumeId, rounds });
       router.push(`/interview/${result.session.id}`);
     } catch (err) {
       setStartError(
@@ -143,23 +200,58 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
             </div>
             <CardTitle>Start a mock interview</CardTitle>
             <CardDescription>
-              Questions will be generated from this resume and role.
+              A real interview loop, built from this resume and role. Choose which
+              rounds to include.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="num_questions">Number of questions</Label>
-              <Input
-                id="num_questions"
-                type="number"
-                min={3}
-                max={10}
-                value={numQuestions}
-                onChange={(event) =>
-                  setNumQuestions(Number(event.target.value))
-                }
-                className="w-24"
-              />
+            <div className="flex flex-col gap-3">
+              {ROUND_OPTIONS.map((option) => {
+                const state = roundState[option.round_type];
+                const Icon = option.icon;
+
+                return (
+                  <div
+                    key={option.round_type}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-background/40 p-3"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={state.enabled}
+                      onChange={(event) =>
+                        setRoundState((prev) => ({
+                          ...prev,
+                          [option.round_type]: { ...prev[option.round_type], enabled: event.target.checked },
+                        }))
+                      }
+                      className="mt-1 size-4 accent-[var(--primary)]"
+                      aria-label={`Include ${option.title}`}
+                    />
+                    <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{option.title}</p>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      disabled={!state.enabled}
+                      value={state.count}
+                      onChange={(event) =>
+                        setRoundState((prev) => ({
+                          ...prev,
+                          [option.round_type]: {
+                            ...prev[option.round_type],
+                            count: Math.max(1, Math.min(5, Number(event.target.value))),
+                          },
+                        }))
+                      }
+                      className="w-16 shrink-0"
+                    />
+                  </div>
+                );
+              })}
             </div>
             {startError && (
               <p className="text-sm text-destructive">{startError}</p>
