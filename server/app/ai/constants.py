@@ -1,6 +1,6 @@
 """Constants used throughout the AI platform"""
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_MAX_OUTPUT_TOKENS = 4096
 DEFAULT_TOP_P = 0.9
