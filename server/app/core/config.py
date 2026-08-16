@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME : str | None = None
     AWS_REGION : str | None = None
 
+    # Public Piston instance by default; self-host https://github.com/engineer-man/piston
+    # and point this at it for production traffic (the public instance is rate-limited).
+    CODE_EXECUTION_API_URL : str = "https://emkc.org/api/v2/piston"
+    CODE_EXECUTION_TIMEOUT_SECONDS : int = 15
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @property
