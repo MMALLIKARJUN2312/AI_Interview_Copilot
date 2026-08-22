@@ -43,10 +43,8 @@ class GeminiProvider(AIProvider):
             raise AIProviderError("Failed to communicate with the AI provider") from exc
 
 class OpenAICompatibleProvider(AIProvider):
-    """Adapter for any provider exposing an OpenAI-compatible Chat Completions
-    API - this single class covers Groq, OpenRouter, Together AI, LM Studio,
-    Ollama, and others, since they all speak the same request/response shape;
-    only the base URL, model, and API key differ.
+    """Adapter for providers exposing an OpenAI-compatible
+    Chat Completions API.
     """
 
     def __init__(self, *, name : str, model : str, base_url : str, api_key : str | None) -> None:

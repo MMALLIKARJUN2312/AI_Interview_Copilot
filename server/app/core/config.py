@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY : str | None = None
     GEMINI_MODEL : str = "gemini-3.5-flash-lite"
 
-    # Free tier at https://console.groq.com - fast inference, generous free quota.
+    # # Groq production model - fast inference.
     GROQ_API_KEY : str | None = None
-    GROQ_MODEL : str = "llama-3.3-70b-versatile"
+    GROQ_MODEL : str = "openai/gpt-oss-120b"
 
     # Free-tier models at https://openrouter.ai (look for a ":free" suffix).
     OPENROUTER_API_KEY : str | None = None

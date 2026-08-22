@@ -34,7 +34,7 @@ def test_openai_compatible_provider_requires_api_key():
 
 def test_openai_compatible_provider_parses_chat_completion_response(monkeypatch):
     provider = OpenAICompatibleProvider(
-        name="groq", model="llama-3.3-70b-versatile",
+        name="groq", model="openai/gpt-oss-120b",
         base_url="https://api.groq.com/openai/v1", api_key="fake-key",
     )
 
@@ -60,7 +60,7 @@ def test_openai_compatible_provider_parses_chat_completion_response(monkeypatch)
     assert result == "hello from groq"
     assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert captured["headers"]["Authorization"] == "Bearer fake-key"
-    assert captured["json"]["model"] == "llama-3.3-70b-versatile"
+    assert captured["json"]["model"] == "openai/gpt-oss-120b"
     assert captured["json"]["messages"] == [{"role": "user", "content": "say hi"}]
 
 
