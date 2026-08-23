@@ -55,9 +55,26 @@ class CodeExecutionService:
                 response = client.post(f"{self.base_url}/execute", json=payload)
                 response.raise_for_status()
                 data = response.json()
-        except httpx.HTTPError as error:
-            logger.exception("Code execution request failed")
-            raise CodeExecutionError("Code execution service is unavailable") from error
+        except httpx.HTTPStatusError as error:
+            logger.error(
+                "Piston HTTP error: status=%s body=%s",
+                error.response.status_code,
+                error.response.text[:1000],
+            )
+
+            raise CodeExecutionError(
+                f"Piston returned HTTP {error.response.status_code}"
+            ) from error
+
+        except httpx.RequestError as error:
+            logger.exception(
+                "Could not connect to Piston: %s",
+                error,
+            )
+
+            raise CodeExecutionError(
+                "Could not connect to code execution service"
+            ) from error
 
         run_result = data.get("run") or {}
         compile_result = data.get("compile")
