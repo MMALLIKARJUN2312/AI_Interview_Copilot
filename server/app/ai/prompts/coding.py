@@ -63,58 +63,103 @@ Expected format :
 
 class MachineCodingQuestionPrompt(BasePrompt):
     """Prompt builder for generating open-ended machine-coding / low-level-design
-    tasks, evaluated holistically rather than by test cases."""
+    tasks, evaluated holistically rather than by automated test cases.
+    """
 
     def build(
         self,
         *,
-        resume_text : str,
-        target_role : str,
-        num_questions : int,
-        job_description : str | None = None,
+        resume_text: str,
+        target_role: str,
+        num_questions: int,
+        job_description: str | None = None,
     ) -> str:
         job_description_section = (
-            f"\nTarget Job Description :\n\n{job_description}\n"
+            f"\nTarget Job Description:\n\n{job_description}\n"
             if job_description
             else ""
         )
 
         return f"""
 You are a senior interviewer running the machine-coding round for a "{target_role}"
-interview loop. Machine coding means: build a small, working piece of software
-(a class design, a mini-library, a simple in-memory system) in a fixed time window -
-evaluated on correctness, design, and code quality, not a single pass/fail test.
+interview loop.
+
+Machine coding means building a small, working piece of software such as:
+- a class design
+- a mini-library
+- an in-memory system
+- a small service
+- a component with multiple interacting classes
+
+The candidate will be evaluated holistically on:
+- correctness
+- object-oriented design
+- separation of responsibilities
+- extensibility
+- error handling
+- code quality
+- readability
+- appropriate data structures
+- handling of edge cases
 
 Using the candidate's resume below, generate exactly {num_questions} machine-coding
-tasks appropriate for a "{target_role}" at the seniority level implied by the resume
-(e.g. "design and implement a rate limiter", "build an in-memory key-value store with
-TTL support", "implement a parking lot management system"). Include the functional
-requirements the solution must satisfy.
+tasks appropriate for a "{target_role}" at the seniority level implied by the resume.
+
+Examples include:
+- design and implement a rate limiter
+- build an in-memory key-value store with TTL support
+- implement a parking lot management system
+- design a notification service
+- implement a library management system
+
+Include clear functional requirements and relevant constraints.
+
+IMPORTANT OUTPUT RULES:
+
+1. Return only valid JSON.
+
+2. Do not use markdown.
+
+3. Do not use LaTeX or mathematical notation containing backslashes.
+
+4. Do not use characters such as \, \n, \t, \r, or other escape sequences inside
+JSON strings unless they are properly JSON-escaped.
+
+Keep feedback plain text. For example, write:
+"K must be greater than or equal to N"
+instead of:
+"K \ge N"
+
+5. Do not include explanations outside the JSON object.
+
+6. Generate exactly {num_questions} questions.
+7. Machine-coding questions are OPEN-ENDED and are NOT evaluated using
+   stdin/stdout test cases.
+8. Therefore, "test_cases" MUST ALWAYS be an empty JSON array: [].
+. NEVER generate objects, dictionaries, inputs, expected outputs, mock data,
+   test cases, or test-case-like structures inside "test_cases".
+9. The value of "test_cases" must literally be [] for EVERY question.
+
 {job_description_section}
-Return only valid JSON.
 
-Do Not include markdown.
-
-Do Not include explanations.
-
-Resume :
+Resume:
 
 {resume_text}
 
-Expected format :
+Expected JSON structure:
 
 {{
     "questions": [
         {{
             "question": "full task description including functional requirements",
             "difficulty": "easy | medium | hard",
-            "examples": "an example usage/interaction, if helpful",
-            "constraints": "any explicit constraints or non-functional requirements",
+            "examples": "example usage or interaction, if helpful",
+            "constraints": "explicit functional or non-functional constraints",
             "test_cases": []
         }}
     ]
 }}
-    """
+"""
 
 class CodeReviewPrompt(BasePrompt):
     """Prompt builder for evaluating a candidate's submitted code for a coding-round
