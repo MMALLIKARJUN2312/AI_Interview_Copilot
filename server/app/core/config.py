@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Public Piston instance by default; self-host https://github.com/engineer-man/piston
     # and point this at it for production traffic (the public instance is rate-limited).
-    CODE_EXECUTION_API_URL=http://localhost:2000/api/v2
+    CODE_EXECUTION_API_URL : str = "http://localhost:2000/api/v2"
     CODE_EXECUTION_TIMEOUT_SECONDS : int = 15
 
     # Comma-separated provider keys, tried in order until one succeeds. Built-in:
