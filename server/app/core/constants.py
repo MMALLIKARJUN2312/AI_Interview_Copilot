@@ -26,11 +26,21 @@ DEFAULT_ROUND_COMPOSITION = [
 VALID_CODE_LANGUAGES = {"python", "javascript", "java", "cpp"}
 DEFAULT_CODE_LANGUAGE = "python"
 
-# Piston runtime identifiers/versions for each supported language.
-# See https://github.com/engineer-man/piston for the full runtime list.
 PISTON_RUNTIMES = {
-    "python": {"language": "python", "version": "3.10.0"},
-    "javascript": {"language": "javascript", "version": "18.15.0"},
-    "java": {"language": "java", "version": "15.0.2"},
-    "cpp": {"language": "cpp", "version": "10.2.0"},
+    "python": {
+        "language": "python",
+        "version": "3.12.0",
+    },
+    "javascript": {
+        "language": "javascript",
+        "version": "20.11.1",
+    },
+    "java": {
+        "language": "java",
+        "version": "15.0.2",
+    },
+    "cpp": {
+        "language": "c++",
+        "version": "10.2.0",
+    },
 }
