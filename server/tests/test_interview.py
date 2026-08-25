@@ -96,6 +96,24 @@ def test_cannot_complete_without_any_answers(client, auth_headers, uploaded_resu
 
     assert response.status_code == 400
 
+def test_cannot_complete_with_unanswered_questions(client, auth_headers, uploaded_resume):
+    resume_id = uploaded_resume["resume_id"]
+    start = client.post("/interview/start", headers=auth_headers, json={
+        "resume_id": resume_id, "rounds": [{"round_type": "general", "num_questions": 3}],
+    }).json()
+    session_id = start["session"]["id"]
+
+    answer = client.post(f"/interview/{session_id}/answer", headers=auth_headers, json={
+        "question_id": start["first_question"]["id"],
+        "answer_text": "A detailed technical answer.",
+    })
+    assert answer.status_code == 200
+
+    response = client.post(f"/interview/{session_id}/complete", headers=auth_headers)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Cannot complete an interview until all questions are answered"
+
 def test_other_user_cannot_see_session(client, auth_headers, other_auth_headers, uploaded_resume):
     resume_id = uploaded_resume["resume_id"]
     start = client.post("/interview/start", headers=auth_headers, json={

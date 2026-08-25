@@ -351,8 +351,8 @@ class InterviewService:
         questions = self.question_repo.get_by_session(db, session.id)
         answered = [question for question in questions if question.answer is not None]
 
-        if not answered:
-            raise ValueError("Cannot complete an interview with no answered questions")
+        if len(answered) != len(questions):
+            raise ValueError("Cannot complete an interview until all questions are answered")
 
         transcript = self._build_transcript(questions)
 
