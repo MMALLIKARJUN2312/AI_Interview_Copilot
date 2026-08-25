@@ -34,7 +34,7 @@ export default function RegisterPage() {
 
     try {
       await register(fullName, email, password);
-      router.push("/dashboard");
+      router.push("/login");
     } catch (err) {
       setError(
         err instanceof ApiError
