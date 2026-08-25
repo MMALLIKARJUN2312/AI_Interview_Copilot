@@ -62,15 +62,16 @@ def test_validator_raises_on_schema_mismatch():
     with pytest.raises(AIResponseValidationError):
         AIResponseValidator.validate(response={"score": "not-a-number"}, response_model=_Sample)
 
-def test_parser_raises_on_invalid_escape():
+def test_parser_repairs_invalid_escape():
     raw = r'''
     {
         "solution": "Use \d+ to match digits"
     }
     '''
 
-    with pytest.raises(AIResponseParsingError):
-        AIResponseParser.parse_json(raw)
+    result = AIResponseParser.parse_json(raw)
+
+    assert result["solution"] == r"Use \d+ to match digits"
 
 def test_parser_accepts_escaped_backslash():
     raw = r'''
