@@ -27,6 +27,7 @@ client/public/monaco
 
 # Backend (Python)
 
+server/.venv/
 server/venv
 server/__pycache__
 server/**/*.pyc
@@ -66,3 +67,9 @@ htmlcov/
 
 dist/
 build/
+
+# Test artifacts
+.pytest_cache/
+.pytest-tmp/
+server/.pytest_cache/
+server/.pytest-tmp/
