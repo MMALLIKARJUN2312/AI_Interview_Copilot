@@ -197,7 +197,7 @@ AWS_REGION=<bucket-region>
 AWS_ACCESS_KEY_ID=<secret>
 AWS_SECRET_ACCESS_KEY=<secret>
 
-CODE_EXECUTION_API_URL=https://your-private-piston-endpoint/api/v2
+CODE_EXECUTION_API_URL=http://private-piston-host:2000/api/v2
 CODE_EXECUTION_TIMEOUT_SECONDS=15
 ```
 
@@ -349,7 +349,7 @@ curl http://127.0.0.1:2000/api/v2/runtimes
 docker logs piston_api
 ```
 
-Configure the backend with a private or authenticated endpoint:
+Configure the backend with a private endpoint reachable only through a private network, VPN, firewall allowlist or internal service network:
 
 ```env
 CODE_EXECUTION_API_URL=https://private-code-runner.example.com/api/v2
@@ -361,7 +361,8 @@ Production Piston controls should include:
 - outbound networking disabled for submitted programs;
 - strict execution time limits;
 - strict memory and process limits;
-- request authentication;
+- private-network or firewall-based access control;
+- request authentication after backend support for an authorization header is implemented;
 - per-user execution quotas;
 - API rate limits;
 - request and error monitoring;
