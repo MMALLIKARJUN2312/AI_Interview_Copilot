@@ -574,13 +574,11 @@ It does not directly deploy Vercel or Render.
 
 Vercel and Render can independently connect to the GitHub repository and deploy after changes reach `main`. Configure Render to deploy only after CI checks pass.
 
-The latest verified main-branch workflow is:
+## CI status
 
-```text
-CI #40
-Commit: 900ff91
-Result: successful
-```
+[![CI](https://github.com/MMALLIKARJUN2312/AI_Interview_Copilot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MMALLIKARJUN2312/AI_Interview_Copilot/actions/workflows/ci.yml)
+
+Before deployment, confirm that the latest workflow run on the `main` branch has completed successfully.
 
 ## Free-tier expectations
 
