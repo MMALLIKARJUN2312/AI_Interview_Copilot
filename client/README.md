@@ -39,7 +39,7 @@ This application is built with Next.js, React, TypeScript, Tailwind CSS, Radix U
 
 Install the following before running the frontend:
 
-- Node.js 20 or later
+- Node.js 22 or later
 - npm
 - A running AI Interview Copilot backend
 
