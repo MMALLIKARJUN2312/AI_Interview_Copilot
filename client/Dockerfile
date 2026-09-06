@@ -1,4 +1,4 @@
-FROM node:20-slim AS deps
+FROM node:26-slim AS deps
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 # in the builder stage below instead, after the full source is present.
 RUN npm ci --ignore-scripts
 
-FROM node:20-slim AS builder
+FROM node:26-slim AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
-FROM node:20-slim AS runner
+FROM node:26-slim AS runner
 
 WORKDIR /app
 
