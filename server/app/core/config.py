@@ -8,6 +8,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM : str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES : int = 30
     REFRESH_TOKEN_EXPIRE_DAYS : int = 30
+    
+    REFRESH_COOKIE_NAME : str = "aic_refresh_token"
+    REFRESH_COOKIE_SECURE : bool = False
+    REFRESH_COOKIE_SAMESITE : str = "lax"
+    REFRESH_COOKIE_DOMAIN : str | None = None
+    
     CORS_ORIGINS : str = "http://localhost:3000"
 
     RATE_LIMIT_ENABLED : bool = True

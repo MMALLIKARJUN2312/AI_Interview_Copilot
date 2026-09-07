@@ -313,3 +313,136 @@ def test_candidate_cannot_access_admin_endpoint(client, auth_headers):
     )
 
     assert response.status_code == 403
+    
+REFRESH_COOKIE_NAME = "aic_refresh_token"
+
+
+def test_login_sets_httponly_refresh_cookie(client):
+    register_user(client)
+
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert response.status_code == 200
+
+    set_cookie = response.headers["set-cookie"].lower()
+
+    assert f"{REFRESH_COOKIE_NAME}=" in set_cookie
+    assert "httponly" in set_cookie
+    assert "samesite=lax" in set_cookie
+    assert "path=/auth" in set_cookie
+    assert client.cookies.get(REFRESH_COOKIE_NAME)
+
+
+def test_refresh_accepts_httponly_cookie_without_request_body(client):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    original_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+
+    assert login_response.status_code == 200
+    assert original_refresh_token
+
+    response = client.post("/auth/refresh")
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+    rotated_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+
+    assert rotated_refresh_token
+    assert rotated_refresh_token != original_refresh_token
+
+
+def test_cookie_refresh_rejects_reused_rotated_token(client):
+    register_user(client)
+    client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    original_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+
+    assert original_refresh_token
+
+    first_refresh = client.post("/auth/refresh")
+
+    assert first_refresh.status_code == 200
+
+    client.cookies.clear()
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        original_refresh_token,
+        path="/auth",
+    )
+
+    reused_response = client.post("/auth/refresh")
+
+    assert reused_response.status_code == 401
+    assert (
+        reused_response.json()["detail"]
+        == "Invalid or expired refresh token"
+    )
+
+
+def test_logout_accepts_cookie_and_clears_it(client):
+    register_user(client)
+    client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+
+    assert refresh_token
+
+    logout_response = client.post("/auth/logout")
+
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {"message": "Logged out"}
+    assert client.cookies.get(REFRESH_COOKIE_NAME) is None
+
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        refresh_token,
+        path="/auth",
+    )
+
+    refresh_response = client.post("/auth/refresh")
+
+    assert refresh_response.status_code == 401
+
+
+def test_refresh_without_body_or_cookie_is_rejected(client):
+    client.cookies.clear()
+
+    response = client.post("/auth/refresh")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Refresh token is required"
+
+
+def test_logout_without_body_or_cookie_is_idempotent(client):
+    client.cookies.clear()
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Logged out"}
