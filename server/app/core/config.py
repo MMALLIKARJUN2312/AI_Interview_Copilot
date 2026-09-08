@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     REFRESH_COOKIE_SAMESITE : str = "lax"
     REFRESH_COOKIE_DOMAIN : str | None = None
     
+    CSRF_COOKIE_NAME : str = "aic_csrf_token"
+    CSRF_HEADER_NAME : str = "X-CSRF-Token"
+    
     CORS_ORIGINS : str = "http://localhost:3000"
 
     RATE_LIMIT_ENABLED : bool = True
