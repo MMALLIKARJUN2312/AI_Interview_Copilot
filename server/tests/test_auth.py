@@ -193,7 +193,8 @@ def test_refresh_rotates_refresh_token(client):
 
 def test_cookie_refresh_rejects_reused_rotated_token(client):
     register_user(client)
-    client.post(
+
+    login_response = client.post(
         "/auth/login",
         json={
             "email": REGISTER_PAYLOAD["email"],
@@ -201,17 +202,17 @@ def test_cookie_refresh_rejects_reused_rotated_token(client):
         },
     )
 
-    original_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
-    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+    assert login_response.status_code == 200
 
-    assert original_refresh_token
-    assert csrf_token
+    original_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+    original_csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    assert original_refresh_token is not None
+    assert original_csrf_token is not None
 
     first_refresh = client.post(
         "/auth/refresh",
-        headers={
-            "X-CSRF-Token": csrf_token,
-        },
+        headers={"X-CSRF-Token": original_csrf_token},
     )
 
     assert first_refresh.status_code == 200
@@ -224,15 +225,13 @@ def test_cookie_refresh_rejects_reused_rotated_token(client):
     )
     client.cookies.set(
         CSRF_COOKIE_NAME,
-        csrf_token,
+        original_csrf_token,
         path="/",
     )
 
     reused_response = client.post(
         "/auth/refresh",
-        headers={
-            "X-CSRF-Token": csrf_token,
-        },
+        headers={"X-CSRF-Token": original_csrf_token},
     )
 
     assert reused_response.status_code == 401
@@ -240,7 +239,6 @@ def test_cookie_refresh_rejects_reused_rotated_token(client):
         reused_response.json()["detail"]
         == "Invalid or expired refresh token"
     )
-
 def test_refresh_rejects_unknown_token(client):
     response = client.post(
         "/auth/refresh",
@@ -397,40 +395,6 @@ def test_refresh_accepts_protected_cookie_without_request_body(client):
     assert rotated_refresh_token != original_refresh_token
     assert rotated_csrf_token
     assert rotated_csrf_token != csrf_token
-
-def test_cookie_refresh_rejects_reused_rotated_token(client):
-    register_user(client)
-    client.post(
-        "/auth/login",
-        json={
-            "email": REGISTER_PAYLOAD["email"],
-            "password": REGISTER_PAYLOAD["password"],
-        },
-    )
-
-    original_refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
-
-    assert original_refresh_token
-
-    first_refresh = client.post("/auth/refresh")
-
-    assert first_refresh.status_code == 200
-
-    client.cookies.clear()
-    client.cookies.set(
-        REFRESH_COOKIE_NAME,
-        original_refresh_token,
-        path="/auth",
-    )
-
-    reused_response = client.post("/auth/refresh")
-
-    assert reused_response.status_code == 401
-    assert (
-        reused_response.json()["detail"]
-        == "Invalid or expired refresh token"
-    )
-
 
 def test_logout_accepts_protected_cookie_and_clears_it(client):
     register_user(client)
