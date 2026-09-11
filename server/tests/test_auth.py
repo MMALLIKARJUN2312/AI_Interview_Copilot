@@ -65,6 +65,59 @@ def test_register_rejects_invalid_email(client):
 
     assert response.status_code == 422
 
+@pytest.mark.parametrize(
+    "password",
+    [
+        "",
+        "short",
+        "1234567",
+    ],
+)
+def test_register_rejects_short_password(client, password):
+    response = client.post(
+        "/auth/register",
+        json={
+            **REGISTER_PAYLOAD,
+            "password": password,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_password_over_bcrypt_byte_limit(client):
+    response = client.post(
+        "/auth/register",
+        json={
+            **REGISTER_PAYLOAD,
+            # Each character occupies two UTF-8 bytes.
+            "password": "é" * 40,
+        },
+    )
+
+    assert response.status_code == 422
+
+    error_messages = [
+        error["msg"]
+        for error in response.json()["detail"]
+    ]
+
+    assert any(
+        "Password must not exceed 72 bytes" in message
+        for message in error_messages
+    )
+
+
+def test_register_accepts_long_passphrase(client):
+    response = client.post(
+        "/auth/register",
+        json={
+            **REGISTER_PAYLOAD,
+            "password": "a secure memorable passphrase",
+        },
+    )
+
+    assert response.status_code == 200
 
 @pytest.mark.parametrize(
     ("email", "password"),
