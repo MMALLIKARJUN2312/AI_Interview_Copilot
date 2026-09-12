@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, clearToken, getToken, onAuthExpired, setTokens } from "@/lib/api";
+import {
+  api,
+  clearToken,
+  getToken,
+  onAuthExpired,
+  setToken,
+} from "@/lib/api";
 import type { UserResponse } from "@/lib/types";
 
 interface AuthContextValue {
@@ -46,23 +52,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return onAuthExpired(() => setUser(null));
   }, []);
 
-  async function login(email: string, password: string) {
-    const { access_token, refresh_token } = await api.login({ email, password });
-    setTokens(access_token, refresh_token);
-    setUser(await api.me());
-  }
+async function login(email: string, password: string) {
+  const { access_token } = await api.login({
+    email,
+    password,
+  });
+
+  setToken(access_token);
+  setUser(await api.me());
+}
 
   async function register(fullName: string, email: string, password: string) {
     await api.register({ full_name: fullName, email, password });
   }
 
   function logout() {
-    api.logout().catch(() => {
-      // best-effort server-side revocation; local state is cleared regardless
-    });
+  void api.logout().finally(() => {
     clearToken();
     setUser(null);
-  }
+  });
+}
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
