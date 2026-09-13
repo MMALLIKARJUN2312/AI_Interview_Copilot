@@ -145,7 +145,7 @@ def test_login_rejects_invalid_credentials_without_email_enumeration(
     assert response.json()["detail"] == "Invalid Credentials"
 
 
-def test_login_returns_bearer_tokens(client):
+def test_login_returns_access_token_without_exposing_refresh_token(client):
     register_user(client)
 
     response = client.post(
@@ -162,11 +162,9 @@ def test_login_returns_bearer_tokens(client):
 
     assert body["token_type"] == "bearer"
     assert isinstance(body["access_token"], str)
-    assert isinstance(body["refresh_token"], str)
     assert body["access_token"]
-    assert body["refresh_token"]
-    assert body["access_token"] != body["refresh_token"]
-
+    assert "refresh_token" not in body
+    assert client.cookies.get(REFRESH_COOKIE_NAME) is not None
 
 def test_login_access_token_authenticates_user(client):
     register_user(client)
@@ -220,29 +218,44 @@ def test_me_does_not_expose_password_hash(client, auth_headers):
     assert "hashed_password" not in body
 
 
-def test_refresh_rotates_refresh_token(client):
+def test_refresh_rotates_refresh_token_without_exposing_it(client):
     register_user(client)
-    login_tokens = login_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    original_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    assert original_refresh_token is not None
+    assert csrf_token is not None
 
     response = client.post(
         "/auth/refresh",
-        json={
-            "refresh_token": login_tokens["refresh_token"],
-        },
+        headers={"X-CSRF-Token": csrf_token},
     )
 
     assert response.status_code == 200
 
-    refreshed_tokens = response.json()
-
-    assert refreshed_tokens["token_type"] == "bearer"
-    assert refreshed_tokens["access_token"]
-    assert refreshed_tokens["refresh_token"]
-    assert (
-        refreshed_tokens["refresh_token"]
-        != login_tokens["refresh_token"]
+    body = response.json()
+    rotated_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
     )
 
+    assert body["token_type"] == "bearer"
+    assert body["access_token"]
+    assert "refresh_token" not in body
+    assert rotated_refresh_token is not None
+    assert rotated_refresh_token != original_refresh_token
 
 def test_cookie_refresh_rejects_reused_rotated_token(client):
     register_user(client)
@@ -309,39 +322,69 @@ def test_refresh_rejects_unknown_token(client):
 
 def test_refreshed_access_token_is_usable(client):
     register_user(client)
-    login_tokens = login_user(client)
 
-    refresh_response = client.post(
-        "/auth/refresh",
+    login_response = client.post(
+        "/auth/login",
         json={
-            "refresh_token": login_tokens["refresh_token"],
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
         },
     )
 
-    assert refresh_response.status_code == 200
+    assert login_response.status_code == 200
 
-    refreshed_access_token = refresh_response.json()["access_token"]
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+    assert csrf_token is not None
+
+    refresh_response = client.post(
+        "/auth/refresh",
+        headers={"X-CSRF-Token": csrf_token},
+    )
+
+    assert refresh_response.status_code == 200
+    assert "refresh_token" not in refresh_response.json()
+
+    refreshed_access_token = refresh_response.json()[
+        "access_token"
+    ]
 
     me_response = client.get(
         "/auth/me",
         headers={
-            "Authorization": f"Bearer {refreshed_access_token}",
+            "Authorization": (
+                f"Bearer {refreshed_access_token}"
+            ),
         },
     )
 
     assert me_response.status_code == 200
-    assert me_response.json()["email"] == REGISTER_PAYLOAD["email"]
-
+    assert (
+        me_response.json()["email"]
+        == REGISTER_PAYLOAD["email"]
+    )
 
 def test_logout_revokes_refresh_token(client):
     register_user(client)
-    login_tokens = login_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    refresh_token = client.cookies.get(REFRESH_COOKIE_NAME)
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    assert refresh_token is not None
+    assert csrf_token is not None
 
     logout_response = client.post(
         "/auth/logout",
-        json={
-            "refresh_token": login_tokens["refresh_token"],
-        },
+        headers={"X-CSRF-Token": csrf_token},
     )
 
     assert logout_response.status_code == 200
@@ -349,15 +392,25 @@ def test_logout_revokes_refresh_token(client):
         "message": "Logged out",
     }
 
+    # Restore the revoked credentials to verify that they cannot
+    # create another authenticated session.
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        refresh_token,
+        path="/auth",
+    )
+    client.cookies.set(
+        CSRF_COOKIE_NAME,
+        csrf_token,
+        path="/",
+    )
+
     refresh_response = client.post(
         "/auth/refresh",
-        json={
-            "refresh_token": login_tokens["refresh_token"],
-        },
+        headers={"X-CSRF-Token": csrf_token},
     )
 
     assert refresh_response.status_code == 401
-
 
 def test_logout_with_unknown_token_is_idempotent(client):
     first_response = client.post(

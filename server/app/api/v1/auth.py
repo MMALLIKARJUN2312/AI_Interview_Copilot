@@ -156,7 +156,6 @@ def login(
 
         return TokenResponse(
             access_token=access_token,
-            refresh_token=refresh_token,
             token_type="bearer",
         )
     except ValueError as error:
@@ -199,9 +198,8 @@ def refresh(
 
         return TokenResponse(
             access_token=access_token,
-            refresh_token=rotated_refresh_token,
             token_type="bearer",
-        )
+    )
     except ValueError as error:
         clear_refresh_cookie(response)
         clear_csrf_cookie(response)
