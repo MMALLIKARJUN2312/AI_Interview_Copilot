@@ -11,8 +11,6 @@ from app.core.rbac import require_role
 from app.db.session import get_db
 from app.schemas.auth import (
     LoginRequest,
-    LogoutRequest,
-    RefreshRequest,
     RegisterRequest,
     TokenResponse,
     UserResponse,
@@ -93,16 +91,6 @@ def validate_csrf_token(request: Request) -> None:
         )
 
 
-def resolve_refresh_token(
-    request: Request,
-    payload: RefreshRequest | LogoutRequest | None,
-) -> tuple[str | None, bool]:
-    if payload is not None and payload.refresh_token:
-        return payload.refresh_token, False
-
-    return request.cookies.get(settings.REFRESH_COOKIE_NAME), True
-
-
 @router.get("/csrf")
 def csrf(response: Response):
     return {
@@ -170,65 +158,69 @@ def login(
 def refresh(
     request: Request,
     response: Response,
-    payload: RefreshRequest | None = None,
     db: Session = Depends(get_db),
 ):
-    refresh_token, using_cookie = resolve_refresh_token(request, payload)
+    refresh_token = request.cookies.get(
+        settings.REFRESH_COOKIE_NAME
+    )
 
     if refresh_token is None:
         clear_refresh_cookie(response)
         clear_csrf_cookie(response)
+
         raise HTTPException(
             status_code=401,
-            detail="Refresh token is required",
+            detail="Refresh token cookie is required",
         )
 
-    if using_cookie:
-        validate_csrf_token(request)
+    validate_csrf_token(request)
 
     try:
         access_token, rotated_refresh_token = (
-            AuthService.refresh_access_token(db, refresh_token)
+            AuthService.refresh_access_token(
+                db,
+                refresh_token,
+            )
         )
 
         set_refresh_cookie(response, rotated_refresh_token)
         csrf_token = create_csrf_token(response)
 
-        response.headers[settings.CSRF_HEADER_NAME] = csrf_token
+        response.headers[
+            settings.CSRF_HEADER_NAME
+        ] = csrf_token
 
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
-    )
+        )
     except ValueError as error:
         clear_refresh_cookie(response)
         clear_csrf_cookie(response)
+
         raise HTTPException(
             status_code=401,
             detail=str(error),
         ) from error
 
-
 @router.post("/logout")
 def logout(
     request: Request,
     response: Response,
-    payload: LogoutRequest | None = None,
     db: Session = Depends(get_db),
 ):
-    refresh_token, using_cookie = resolve_refresh_token(request, payload)
+    refresh_token = request.cookies.get(
+        settings.REFRESH_COOKIE_NAME
+    )
 
     if refresh_token is not None:
-        if using_cookie:
-            validate_csrf_token(request)
-
+        validate_csrf_token(request)
         AuthService.logout_user(db, refresh_token)
 
     clear_refresh_cookie(response)
     clear_csrf_cookie(response)
 
     return {"message": "Logged out"}
-
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user=Depends(get_current_user)):

@@ -305,20 +305,39 @@ def test_cookie_refresh_rejects_reused_rotated_token(client):
         reused_response.json()["detail"]
         == "Invalid or expired refresh token"
     )
-def test_refresh_rejects_unknown_token(client):
+
+def test_refresh_does_not_accept_request_body_token(client):
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    exposed_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    assert exposed_refresh_token is not None
+
+    client.cookies.clear()
+
     response = client.post(
         "/auth/refresh",
         json={
-            "refresh_token": "not-a-real-token",
+            "refresh_token": exposed_refresh_token,
         },
     )
 
     assert response.status_code == 401
     assert (
         response.json()["detail"]
-        == "Invalid or expired refresh token"
+        == "Refresh token cookie is required"
     )
-
 
 def test_refreshed_access_token_is_usable(client):
     register_user(client)
@@ -411,26 +430,6 @@ def test_logout_revokes_refresh_token(client):
     )
 
     assert refresh_response.status_code == 401
-
-def test_logout_with_unknown_token_is_idempotent(client):
-    first_response = client.post(
-        "/auth/logout",
-        json={
-            "refresh_token": "unknown-refresh-token",
-        },
-    )
-
-    second_response = client.post(
-        "/auth/logout",
-        json={
-            "refresh_token": "unknown-refresh-token",
-        },
-    )
-
-    assert first_response.status_code == 200
-    assert second_response.status_code == 200
-    assert first_response.json() == {"message": "Logged out"}
-    assert second_response.json() == {"message": "Logged out"}
 
 
 def test_candidate_cannot_access_admin_endpoint(client, auth_headers):
@@ -550,14 +549,16 @@ def test_logout_accepts_protected_cookie_and_clears_it(client):
 
     assert refresh_response.status_code == 401
 
-def test_refresh_without_body_or_cookie_is_rejected(client):
+def test_refresh_without_cookie_is_rejected(client):
     client.cookies.clear()
 
     response = client.post("/auth/refresh")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Refresh token is required"
-
+    assert (
+        response.json()["detail"]
+        == "Refresh token cookie is required"
+    )
 
 def test_logout_without_body_or_cookie_is_idempotent(client):
     client.cookies.clear()
@@ -645,3 +646,56 @@ def test_cookie_logout_rejects_missing_csrf_header(client):
 
     assert response.status_code == 403
     assert response.json()["detail"] == "CSRF validation failed"
+    
+def test_logout_request_body_cannot_revoke_refresh_token(client):
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    assert refresh_token is not None
+    assert csrf_token is not None
+
+    client.cookies.clear()
+
+    logout_response = client.post(
+        "/auth/logout",
+        json={
+            "refresh_token": refresh_token,
+        },
+    )
+
+    # Logout without an authentication cookie remains idempotent.
+    assert logout_response.status_code == 200
+
+    # Restore the session to prove the JSON token was ignored and
+    # therefore could not be used as an authentication credential.
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        refresh_token,
+        path="/auth",
+    )
+    client.cookies.set(
+        CSRF_COOKIE_NAME,
+        csrf_token,
+        path="/",
+    )
+
+    refresh_response = client.post(
+        "/auth/refresh",
+        headers={"X-CSRF-Token": csrf_token},
+    )
+
+    assert refresh_response.status_code == 200
