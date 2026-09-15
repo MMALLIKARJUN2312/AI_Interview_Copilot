@@ -13,19 +13,26 @@ def validate_password(value: str) -> str:
 
     return value
 
-
-class RegisterRequest(BaseModel):
-    full_name: str = Field(min_length=2, max_length=100)
+class EmailRequest(BaseModel):
     email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if isinstance(value, str):
+            return value.strip().lower()
+
+        return value
+
+class RegisterRequest(EmailRequest):
+    full_name: str = Field(min_length=2, max_length=100)
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
 
     _validate_password_bytes = field_validator("password")(
         validate_password
     )
 
-
-class LoginRequest(BaseModel):
-    email: EmailStr
+class LoginRequest(EmailRequest):
     password: str
 
 

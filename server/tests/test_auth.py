@@ -699,3 +699,67 @@ def test_logout_request_body_cannot_revoke_refresh_token(client):
     )
 
     assert refresh_response.status_code == 200
+    
+def test_register_normalizes_email_address(client):
+    response = client.post(
+        "/auth/register",
+        json={
+            **REGISTER_PAYLOAD,
+            "email": "  Jane@Example.COM  ",
+        },
+    )
+
+    assert response.status_code == 200
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": "jane@example.com",
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    access_token = login_response.json()["access_token"]
+
+    me_response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+
+    assert me_response.status_code == 200
+    assert (
+        me_response.json()["email"]
+        == "jane@example.com"
+    )
+    
+def test_register_rejects_case_variant_duplicate_email(client):
+    register_user(client)
+
+    response = client.post(
+        "/auth/register",
+        json={
+            **REGISTER_PAYLOAD,
+            "email": "JANE@EXAMPLE.COM",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "User already exists"
+    
+def test_login_accepts_case_variant_email(client):
+    register_user(client)
+
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "JANE@EXAMPLE.COM",
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]

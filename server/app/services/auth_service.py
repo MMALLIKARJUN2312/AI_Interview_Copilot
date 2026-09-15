@@ -17,7 +17,9 @@ class AuthService:
 
     @staticmethod
     def register_user(db : Session, full_name : str, email : str, password : str) -> User:
-        existing_user = UserService.get_user_by_email(db, email)
+        normalized_email = email.strip().lower()
+
+        existing_user = UserService.get_user_by_email(db,normalized_email)
 
         if existing_user:
             raise ValueError("User already exists")
@@ -27,7 +29,7 @@ class AuthService:
         return UserService.create_user(
             db=db,
             full_name=full_name,
-            email=email,
+            email=normalized_email,
             hashed_password=hashed)
 
     @staticmethod
@@ -53,7 +55,9 @@ class AuthService:
 
     @classmethod
     def login_user(cls, db : Session, email : str, password : str) -> tuple[str, str]:
-        user = UserService.get_user_by_email(db, email)
+        normalized_email = email.strip().lower()
+
+        user = UserService.get_user_by_email(db, normalized_email)
 
         if not user:
             raise ValueError("Invalid Credentials")
