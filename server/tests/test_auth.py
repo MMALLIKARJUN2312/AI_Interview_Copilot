@@ -1,5 +1,6 @@
 import pytest
-
+from sqlalchemy.exc import IntegrityError
+from app.services.user_service import UserService
 
 REGISTER_PAYLOAD = {
     "full_name": "Jane Dev",
@@ -763,3 +764,41 @@ def test_login_accepts_case_variant_email(client):
 
     assert response.status_code == 200
     assert response.json()["access_token"]
+    
+def test_register_handles_database_duplicate_race(
+    client,
+    monkeypatch,
+):
+    rollback_called = False
+
+    def raise_duplicate_error(db):
+        raise IntegrityError(
+            statement="INSERT INTO users",
+            params={},
+            orig=Exception("duplicate email"),
+        )
+
+    def record_rollback(db):
+        nonlocal rollback_called
+        rollback_called = True
+        db.rollback()
+
+    monkeypatch.setattr(
+        UserService.repository,
+        "commit",
+        raise_duplicate_error,
+    )
+    monkeypatch.setattr(
+        UserService.repository,
+        "rollback",
+        record_rollback,
+    )
+
+    response = client.post(
+        "/auth/register",
+        json=REGISTER_PAYLOAD,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "User already exists"
+    assert rollback_called is True
