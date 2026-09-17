@@ -11,7 +11,6 @@ import {
 import {
   api,
   clearToken,
-  getToken,
   onAuthExpired,
   setToken,
 } from "@/lib/api";
@@ -35,18 +34,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const token = getToken();
+useEffect(() => {
+  let cancelled = false;
 
-    const pending = token
-      ? api.me().then(setUser).catch(() => {
-          clearToken();
+  async function initializeSession() {
+    try {
+      clearToken();
+
+      const restoredToken = await api.restoreSession();
+
+      if (!restoredToken) {
+        if (!cancelled) {
           setUser(null);
-        })
-      : Promise.resolve();
+        }
 
-    pending.finally(() => setIsLoading(false));
-  }, []);
+        return;
+      }
+
+      const currentUser = await api.me();
+
+      if (!cancelled) {
+        setUser(currentUser);
+      }
+    } catch {
+      clearToken();
+
+      if (!cancelled) {
+        setUser(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setIsLoading(false);
+      }
+    }
+  }
+
+  void initializeSession();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   useEffect(() => {
     return onAuthExpired(() => setUser(null));

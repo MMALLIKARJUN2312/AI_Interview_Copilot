@@ -15,29 +15,55 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-const ACCESS_TOKEN_KEY = "aic_access_token";
+const LEGACY_ACCESS_TOKEN_KEY = "aic_access_token";
 const AUTH_EXPIRED_EVENT = "aic:auth-expired";
 
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+let accessToken: string | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
+
+interface CsrfResponse {
+  csrf_token: string;
 }
 
-export function setToken(accessToken: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+function removeLegacyStoredToken(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+}
+
+export function getToken(): string | null {
+  return accessToken;
+}
+
+export function setToken(token: string): void {
+  accessToken = token;
+
+  // Remove tokens stored by versions released before access tokens
+  // became memory-only.
+  removeLegacyStoredToken();
 }
 
 export function clearToken(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  accessToken = null;
+  removeLegacyStoredToken();
 }
 
-/** Fires when a refresh attempt fails, so the app can force a logout. */
+/**
+ * Subscribes to authentication-expired events.
+ * Returns a cleanup function for React effects.
+ */
 export function onAuthExpired(handler: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
   window.addEventListener(AUTH_EXPIRED_EVENT, handler);
-  return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
+
+  return () => {
+    window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
+  };
 }
 
 export class ApiError extends Error {
@@ -49,12 +75,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-
-interface CsrfResponse {
-  csrf_token: string;
-}
-
-let refreshInFlight: Promise<string | null> | null = null;
 
 async function requestCsrfToken(): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
@@ -70,6 +90,11 @@ async function requestCsrfToken(): Promise<string> {
   }
 
   const body = (await response.json()) as CsrfResponse;
+
+  if (!body.csrf_token) {
+    throw new ApiError(500, "The server did not return a CSRF token");
+  }
+
   return body.csrf_token;
 }
 
@@ -79,26 +104,30 @@ async function refreshAccessToken(): Promise<string | null> {
       try {
         const csrfToken = await requestCsrfToken();
 
-        const response = await fetch(
-          `${API_BASE_URL}/auth/refresh`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "X-CSRF-Token": csrfToken,
-            },
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "X-CSRF-Token": csrfToken,
           },
-        );
+        });
 
         if (!response.ok) {
+          clearToken();
           return null;
         }
 
         const body = (await response.json()) as TokenResponse;
-        setToken(body.access_token);
 
+        if (!body.access_token) {
+          clearToken();
+          return null;
+        }
+
+        setToken(body.access_token);
         return body.access_token;
       } catch {
+        clearToken();
         return null;
       }
     })().finally(() => {
@@ -109,7 +138,10 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-async function doFetch(path: string, options: RequestInit): Promise<Response> {
+async function doFetch(
+  path: string,
+  options: RequestInit,
+): Promise<Response> {
   const token = getToken();
   const headers = new Headers(options.headers);
 
@@ -128,7 +160,11 @@ async function doFetch(path: string, options: RequestInit): Promise<Response> {
   });
 }
 
-const AUTH_ENDPOINTS = ["/auth/login", "/auth/register", "/auth/refresh"];
+const AUTH_ENDPOINTS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+];
 
 async function request<T>(
   path: string,
@@ -143,6 +179,7 @@ async function request<T>(
       response = await doFetch(path, options);
     } else {
       clearToken();
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
       }
@@ -153,12 +190,15 @@ async function request<T>(
     let message = `Request failed with status ${response.status}`;
 
     try {
-      const body = await response.json();
-      if (typeof body?.detail === "string") {
+      const body = (await response.json()) as {
+        detail?: unknown;
+      };
+
+      if (typeof body.detail === "string") {
         message = body.detail;
       }
     } catch {
-      // response body wasn't JSON; keep the default message
+      // Keep the default message when the response body is not JSON.
     }
 
     throw new ApiError(response.status, message);
@@ -172,30 +212,44 @@ async function request<T>(
 }
 
 export const api = {
-  register(payload: { full_name: string; email: string; password: string }) {
-    return request<{ message: string; user_id: number }>("/auth/register", {
+  register(payload: {
+    full_name: string;
+    email: string;
+    password: string;
+  }) {
+    return request<{
+      message: string;
+      user_id: number;
+    }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
-  login(payload: { email: string; password: string }) {
+  restoreSession() {
+    return refreshAccessToken();
+  },
+
+  login(payload: {
+    email: string;
+    password: string;
+  }) {
     return request<TokenResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
 
-async logout() {
-  const csrfToken = await requestCsrfToken();
+  async logout() {
+    const csrfToken = await requestCsrfToken();
 
-  return request<{ message: string }>("/auth/logout", {
-    method: "POST",
-    headers: {
-      "X-CSRF-Token": csrfToken,
-    },
-  });
-},
+    return request<{ message: string }>("/auth/logout", {
+      method: "POST",
+      headers: {
+        "X-CSRF-Token": csrfToken,
+      },
+    });
+  },
 
   me() {
     return request<UserResponse>("/auth/me");
@@ -207,8 +261,10 @@ async logout() {
     jobDescription?: string;
   }) {
     const formData = new FormData();
+
     formData.append("file", payload.file);
     formData.append("target_role", payload.targetRole);
+
     if (payload.jobDescription) {
       formData.append("job_description", payload.jobDescription);
     }
@@ -228,10 +284,15 @@ async logout() {
   },
 
   getResumeAnalysis(resumeId: number) {
-    return request<ResumeAnalysisResponse>(`/resume/${resumeId}/analysis`);
+    return request<ResumeAnalysisResponse>(
+      `/resume/${resumeId}/analysis`,
+    );
   },
 
-  startInterview(payload: { resumeId: number; rounds?: RoundConfig[] }) {
+  startInterview(payload: {
+    resumeId: number;
+    rounds?: RoundConfig[];
+  }) {
     return request<StartInterviewResponse>("/interview/start", {
       method: "POST",
       body: JSON.stringify({
@@ -268,20 +329,25 @@ async logout() {
     code: string;
     language: string;
   }) {
-    return request<RunCodeResponse>(`/interview/${payload.sessionId}/run-code`, {
-      method: "POST",
-      body: JSON.stringify({
-        question_id: payload.questionId,
-        code: payload.code,
-        language: payload.language,
-      }),
-    });
+    return request<RunCodeResponse>(
+      `/interview/${payload.sessionId}/run-code`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          question_id: payload.questionId,
+          code: payload.code,
+          language: payload.language,
+        }),
+      },
+    );
   },
 
   completeInterview(sessionId: number) {
     return request<CompleteInterviewResponse>(
       `/interview/${sessionId}/complete`,
-      { method: "POST" },
+      {
+        method: "POST",
+      },
     );
   },
 
@@ -290,6 +356,8 @@ async logout() {
   },
 
   getSessionDetail(sessionId: number) {
-    return request<SessionDetailResponse>(`/interview/${sessionId}`);
+    return request<SessionDetailResponse>(
+      `/interview/${sessionId}`,
+    );
   },
 };
