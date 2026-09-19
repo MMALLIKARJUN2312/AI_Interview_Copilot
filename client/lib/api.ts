@@ -25,6 +25,16 @@ interface CsrfResponse {
   csrf_token: string;
 }
 
+interface ApiValidationError {
+  loc?: Array<string | number>;
+  msg?: string;
+}
+
+interface ApiErrorResponse {
+  detail?: string | ApiValidationError[];
+  message?: string;
+}
+
 function removeLegacyStoredToken(): void {
   if (typeof window === "undefined") {
     return;
@@ -76,6 +86,68 @@ export class ApiError extends Error {
   }
 }
 
+function formatValidationErrors(
+  errors: ApiValidationError[],
+): string | null {
+  const messages = errors
+    .map((error) => {
+      if (typeof error.msg !== "string") {
+        return null;
+      }
+
+      const location = Array.isArray(error.loc)
+        ? error.loc
+            .filter(
+              (part) =>
+                part !== "body" &&
+                part !== "query" &&
+                part !== "path",
+            )
+            .join(".")
+        : "";
+
+      return location
+        ? `${location}: ${error.msg}`
+        : error.msg;
+    })
+    .filter((message): message is string => Boolean(message));
+
+  const uniqueMessages = [...new Set(messages)];
+
+  return uniqueMessages.length > 0
+    ? uniqueMessages.join("; ")
+    : null;
+}
+
+async function getErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const body = (await response.json()) as ApiErrorResponse;
+
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+
+    if (Array.isArray(body.detail)) {
+      const validationMessage = formatValidationErrors(body.detail);
+
+      if (validationMessage) {
+        return validationMessage;
+      }
+    }
+
+    if (typeof body.message === "string") {
+      return body.message;
+    }
+  } catch {
+    // Keep the supplied fallback for non-JSON responses.
+  }
+
+  return fallback;
+}
+
 async function requestCsrfToken(): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
     method: "GET",
@@ -83,11 +155,13 @@ async function requestCsrfToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      "Unable to initialize secure authentication",
-    );
-  }
+  const message = await getErrorMessage(
+    response,
+    "Unable to initialize secure authentication",
+  );
+
+  throw new ApiError(response.status, message);
+}
 
   const body = (await response.json()) as CsrfResponse;
 
@@ -186,23 +260,14 @@ async function request<T>(
     }
   }
 
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
+if (!response.ok) {
+  const message = await getErrorMessage(
+    response,
+    `Request failed with status ${response.status}`,
+  );
 
-    try {
-      const body = (await response.json()) as {
-        detail?: unknown;
-      };
-
-      if (typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // Keep the default message when the response body is not JSON.
-    }
-
-    throw new ApiError(response.status, message);
-  }
+  throw new ApiError(response.status, message);
+}
 
   if (response.status === 204) {
     return undefined as T;
