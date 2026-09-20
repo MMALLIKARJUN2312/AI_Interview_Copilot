@@ -1,5 +1,8 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
+from jose import jwt
+
+from app.core.config import settings
 from app.services.user_service import UserService
 
 REGISTER_PAYLOAD = {
@@ -186,6 +189,109 @@ def test_login_access_token_authenticates_user(client):
         "role": "candidate",
     }
 
+def test_access_token_contains_required_security_claims(client):
+    register_user(client)
+    tokens = login_user(client)
+
+    payload = jwt.decode(
+        tokens["access_token"],
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+
+    assert payload["sub"] == "1"
+    assert payload["type"] == "access"
+    assert payload["email"] == REGISTER_PAYLOAD["email"]
+    assert payload["role"] == "candidate"
+    assert isinstance(payload["iat"], int)
+    assert isinstance(payload["exp"], int)
+    assert isinstance(payload["jti"], str)
+    assert payload["jti"]
+
+
+def test_me_rejects_token_without_access_type(client):
+    register_user(client)
+
+    token = jwt.encode(
+        {
+            "sub": "1",
+            "email": REGISTER_PAYLOAD["email"],
+        },
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid Token"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        None,
+        "",
+        "not-a-number",
+        "-1",
+        "1.5",
+    ],
+)
+def test_me_rejects_invalid_token_subject(
+    client,
+    subject,
+):
+    register_user(client)
+
+    payload = {
+        "type": "access",
+        "email": REGISTER_PAYLOAD["email"],
+    }
+
+    if subject is not None:
+        payload["sub"] = subject
+
+    token = jwt.encode(
+        payload,
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid Token"
+
+
+def test_separate_logins_receive_different_token_ids(client):
+    register_user(client)
+
+    first_login = login_user(client)
+    second_login = login_user(client)
+
+    first_payload = jwt.decode(
+        first_login["access_token"],
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+    second_payload = jwt.decode(
+        second_login["access_token"],
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+
+    assert first_payload["jti"] != second_payload["jti"]
 
 def test_me_requires_access_token(client):
     response = client.get("/auth/me")
