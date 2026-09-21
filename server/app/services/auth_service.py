@@ -71,23 +71,29 @@ class AuthService:
 
         return access_token, refresh_token
 
-    @classmethod
-    def refresh_access_token(cls, db : Session, raw_refresh_token : str) -> tuple[str, str]:
-        token_hash = hash_refresh_token(raw_refresh_token)
-        stored = refresh_token_repository.get_by_hash(db, token_hash)
 
-        if stored is None or not RefreshTokenRepository.is_valid(stored):
+    @classmethod
+    def refresh_access_token(cls, db: Session, raw_refresh_token: str) -> tuple[str, str]:
+        token_hash = hash_refresh_token(raw_refresh_token)
+
+        user_id = refresh_token_repository.consume_valid_token(
+            db,
+            token_hash,
+        )
+
+        if user_id is None:
+            db.rollback()
             raise ValueError("Invalid or expired refresh token")
 
-        user = UserService.get_user_by_id(db, stored.user_id)
+        user = UserService.get_user_by_id(db, user_id)
 
         if user is None:
+            db.rollback()
             raise ValueError("Invalid or expired refresh token")
-
-        refresh_token_repository.revoke(stored)
 
         access_token = cls._issue_access_token(user)
         new_refresh_token = cls._issue_refresh_token(db, user)
+
         refresh_token_repository.commit(db)
 
         return access_token, new_refresh_token

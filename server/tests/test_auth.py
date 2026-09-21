@@ -5,6 +5,13 @@ from jose import jwt
 from app.core.config import settings
 from app.services.user_service import UserService
 
+from sqlalchemy.orm import Session
+
+from app.core.tokens import hash_refresh_token
+from app.repositories.refresh_token_repository import (
+    RefreshTokenRepository,
+)
+
 REGISTER_PAYLOAD = {
     "full_name": "Jane Dev",
     "email": "jane@example.com",
@@ -412,6 +419,47 @@ def test_cookie_refresh_rejects_reused_rotated_token(client):
         reused_response.json()["detail"]
         == "Invalid or expired refresh token"
     )
+
+def test_refresh_token_can_only_be_consumed_once(
+    client,
+    db_engine,
+):
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    raw_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    assert raw_refresh_token is not None
+
+    token_hash = hash_refresh_token(raw_refresh_token)
+    repository = RefreshTokenRepository()
+
+    with Session(db_engine) as first_session:
+        first_user_id = repository.consume_valid_token(
+            first_session,
+            token_hash,
+        )
+        first_session.commit()
+
+    with Session(db_engine) as second_session:
+        second_user_id = repository.consume_valid_token(
+            second_session,
+            token_hash,
+        )
+        second_session.commit()
+
+    assert first_user_id == 1
+    assert second_user_id is None
 
 def test_refresh_does_not_accept_request_body_token(client):
     register_user(client)
