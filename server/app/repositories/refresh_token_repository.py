@@ -63,11 +63,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         token.revoked = True
         return token
 
-    def revoke_all_for_user(
-        self,
-        db: Session,
-        user_id: int,
-    ) -> None:
+    def revoke_all_for_user(self, db: Session, user_id: int) -> int:
         statement = (
             update(RefreshToken)
             .where(
@@ -77,4 +73,6 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
             .values(revoked=True)
         )
 
-        db.execute(statement)
+        result = db.execute(statement)
+
+        return result.rowcount

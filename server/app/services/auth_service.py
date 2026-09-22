@@ -106,3 +106,16 @@ class AuthService:
         if stored is not None:
             refresh_token_repository.revoke(stored)
             refresh_token_repository.commit(db)
+            
+    @staticmethod
+    def logout_all_sessions(db: Session, user_id: int) -> int:
+        revoked_count = (
+            refresh_token_repository.revoke_all_for_user(
+                db,
+                user_id,
+            )
+        )
+
+        refresh_token_repository.commit(db)
+
+        return revoked_count

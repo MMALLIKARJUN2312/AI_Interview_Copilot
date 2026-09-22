@@ -316,6 +316,20 @@ export const api = {
     });
   },
 
+  async logoutAll() {
+  const csrfToken = await requestCsrfToken();
+
+  return request<{
+    message: string;
+    revoked_sessions: number;
+  }>("/auth/logout-all", {
+    method: "POST",
+    headers: {
+      "X-CSRF-Token": csrfToken,
+    },
+  });
+},
+
   me() {
     return request<UserResponse>("/auth/me");
   },

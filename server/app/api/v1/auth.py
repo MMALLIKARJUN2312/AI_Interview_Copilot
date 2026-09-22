@@ -222,6 +222,28 @@ def logout(
 
     return {"message": "Logged out"}
 
+@router.post("/logout-all")
+def logout_all(
+    request: Request,
+    response: Response,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request)
+
+    revoked_sessions = AuthService.logout_all_sessions(
+        db,
+        current_user.id,
+    )
+
+    clear_refresh_cookie(response)
+    clear_csrf_cookie(response)
+
+    return {
+        "message": "Logged out from all sessions",
+        "revoked_sessions": revoked_sessions,
+    }
+
 @router.get("/me", response_model=UserResponse)
 def me(current_user=Depends(get_current_user)):
     return current_user

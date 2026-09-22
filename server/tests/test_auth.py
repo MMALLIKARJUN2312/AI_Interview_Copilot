@@ -956,3 +956,135 @@ def test_register_handles_database_duplicate_race(
     assert response.status_code == 400
     assert response.json()["detail"] == "User already exists"
     assert rollback_called is True
+    
+def test_logout_all_requires_access_token(client):
+    response = client.post("/auth/logout-all")
+
+    assert response.status_code == 401
+
+
+def test_logout_all_requires_csrf_token(client):
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    access_token = login_response.json()["access_token"]
+
+    response = client.post(
+        "/auth/logout-all",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF validation failed"
+
+
+def test_logout_all_revokes_every_user_session(client):
+    register_user(client)
+
+    first_login = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert first_login.status_code == 200
+
+    first_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    first_csrf_token = client.cookies.get(
+        CSRF_COOKIE_NAME
+    )
+
+    second_login = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert second_login.status_code == 200
+
+    second_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    second_csrf_token = client.cookies.get(
+        CSRF_COOKIE_NAME
+    )
+    access_token = second_login.json()["access_token"]
+
+    assert first_refresh_token is not None
+    assert first_csrf_token is not None
+    assert second_refresh_token is not None
+    assert second_csrf_token is not None
+    assert first_refresh_token != second_refresh_token
+
+    logout_response = client.post(
+        "/auth/logout-all",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "X-CSRF-Token": second_csrf_token,
+        },
+    )
+
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {
+        "message": "Logged out from all sessions",
+        "revoked_sessions": 2,
+    }
+    assert client.cookies.get(REFRESH_COOKIE_NAME) is None
+    assert client.cookies.get(CSRF_COOKIE_NAME) is None
+
+    # Confirm the first session cannot be restored.
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        first_refresh_token,
+        path="/auth",
+    )
+    client.cookies.set(
+        CSRF_COOKIE_NAME,
+        first_csrf_token,
+        path="/",
+    )
+
+    first_refresh_response = client.post(
+        "/auth/refresh",
+        headers={
+            "X-CSRF-Token": first_csrf_token,
+        },
+    )
+
+    assert first_refresh_response.status_code == 401
+
+    # Confirm the second session cannot be restored.
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        second_refresh_token,
+        path="/auth",
+    )
+    client.cookies.set(
+        CSRF_COOKIE_NAME,
+        second_csrf_token,
+        path="/",
+    )
+
+    second_refresh_response = client.post(
+        "/auth/refresh",
+        headers={
+            "X-CSRF-Token": second_csrf_token,
+        },
+    )
+
+    assert second_refresh_response.status_code == 401
