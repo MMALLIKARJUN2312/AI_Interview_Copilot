@@ -1,7 +1,15 @@
 "use client";
 
-import { FileText, Inbox, MessagesSquare, Plus } from "lucide-react";
+import {
+  FileText,
+  Inbox,
+  LogOut,
+  MessagesSquare,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ProtectedRoute } from "@/components/protected-route";
@@ -15,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import type { ResumeSummary, SessionSummary } from "@/lib/types";
 
 function statusVariant(
@@ -45,9 +54,16 @@ function EmptyState({
 }
 
 function DashboardContent() {
-  const [resumes, setResumes] = useState<ResumeSummary[] | null>(null);
-  const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
+  const router = useRouter();
+  const { logoutAll } = useAuth();
+
+  const [resumes, setResumes] =
+    useState<ResumeSummary[] | null>(null);
+  const [sessions, setSessions] =
+    useState<SessionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSigningOutAll, setIsSigningOutAll] =
+    useState(false);
 
   useEffect(() => {
     Promise.all([api.listResumes(), api.listSessions()])
@@ -57,6 +73,32 @@ function DashboardContent() {
       })
       .catch(() => setError("Unable to load your dashboard right now."));
   }, []);
+
+  async function handleLogoutAll(): Promise<void> {
+  const confirmed = window.confirm(
+    "Sign out from every device and browser? You will need to log in again.",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError(null);
+  setIsSigningOutAll(true);
+
+  try {
+    await logoutAll();
+    router.replace("/login");
+  } catch (error) {
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Unable to sign out all sessions. Please try again.",
+    );
+  } finally {
+    setIsSigningOutAll(false);
+  }
+}
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
@@ -112,7 +154,7 @@ function DashboardContent() {
         )}
       </section>
 
-      <section>
+<section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
           <MessagesSquare className="size-4 text-muted-foreground" />
           Interview sessions
@@ -154,6 +196,38 @@ function DashboardContent() {
           </div>
         )}
       </section>
+      <section>
+  <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
+    <ShieldCheck className="size-4 text-muted-foreground" />
+    Account security
+  </h2>
+
+  <Card>
+    <CardHeader>
+      <CardTitle className="text-base">
+        Active sessions
+      </CardTitle>
+      <CardDescription>
+        If you signed in on a shared computer or do not
+        recognize a session, sign out from every device.
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent>
+      <Button
+        type="button"
+        variant="destructive"
+        disabled={isSigningOutAll}
+        onClick={handleLogoutAll}
+      >
+        <LogOut className="size-4" />
+        {isSigningOutAll
+          ? "Signing out…"
+          : "Sign out all devices"}
+      </Button>
+    </CardContent>
+  </Card>
+</section>
     </div>
   );
 }

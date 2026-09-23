@@ -19,101 +19,142 @@ import type { UserResponse } from "@/lib/types";
 interface AuthContextValue {
   user: UserResponse | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<void>;
   register: (
     fullName: string,
     email: string,
     password: string,
   ) => Promise<void>;
   logout: () => void;
+  logoutAll: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined,
+);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function initializeSession() {
-    try {
-      clearToken();
+    async function initializeSession() {
+      try {
+        clearToken();
 
-      const restoredToken = await api.restoreSession();
+        const restoredToken = await api.restoreSession();
 
-      if (!restoredToken) {
+        if (!restoredToken) {
+          if (!cancelled) {
+            setUser(null);
+          }
+
+          return;
+        }
+
+        const currentUser = await api.me();
+
+        if (!cancelled) {
+          setUser(currentUser);
+        }
+      } catch {
+        clearToken();
+
         if (!cancelled) {
           setUser(null);
         }
-
-        return;
-      }
-
-      const currentUser = await api.me();
-
-      if (!cancelled) {
-        setUser(currentUser);
-      }
-    } catch {
-      clearToken();
-
-      if (!cancelled) {
-        setUser(null);
-      }
-    } finally {
-      if (!cancelled) {
-        setIsLoading(false);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }
-  }
 
-  void initializeSession();
+    void initializeSession();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
-
-  useEffect(() => {
-    return onAuthExpired(() => setUser(null));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-async function login(email: string, password: string) {
-  const { access_token } = await api.login({
-    email,
-    password,
-  });
+  useEffect(() => {
+    return onAuthExpired(() => {
+      setUser(null);
+    });
+  }, []);
 
-  setToken(access_token);
-  setUser(await api.me());
-}
+  async function login(
+    email: string,
+    password: string,
+  ): Promise<void> {
+    const { access_token } = await api.login({
+      email,
+      password,
+    });
 
-  async function register(fullName: string, email: string, password: string) {
-    await api.register({ full_name: fullName, email, password });
+    setToken(access_token);
+    setUser(await api.me());
   }
 
-  function logout() {
-  void api.logout().finally(() => {
+  async function register(
+    fullName: string,
+    email: string,
+    password: string,
+  ): Promise<void> {
+    await api.register({
+      full_name: fullName,
+      email,
+      password,
+    });
+  }
+
+  function logout(): void {
+    void api.logout().finally(() => {
+      clearToken();
+      setUser(null);
+    });
+  }
+
+  async function logoutAll(): Promise<void> {
+    await api.logoutAll();
+
     clearToken();
     setUser(null);
-  });
-}
+  }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        logoutAll,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
+  const context = useContext(AuthContext);
 
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) {
+    throw new Error(
+      "useAuth must be used within an AuthProvider",
+    );
   }
 
-  return ctx;
+  return context;
 }
