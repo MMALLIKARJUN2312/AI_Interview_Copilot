@@ -119,3 +119,32 @@ class AuthService:
         refresh_token_repository.commit(db)
 
         return revoked_count
+
+    @staticmethod
+    def change_password(db: Session, user: User, current_password: str, new_password: str) -> int:
+        if not verify_password(
+            current_password,
+            user.hashed_password,
+        ):
+            raise ValueError("Current password is incorrect")
+
+        if verify_password(
+            new_password,
+            user.hashed_password,
+        ):
+            raise ValueError(
+                "New password must be different from the current password"
+            )
+
+        user.hashed_password = hash_password(new_password)
+
+        revoked_sessions = (
+            refresh_token_repository.revoke_all_for_user(
+                db,
+                user.id,
+            )
+        )
+
+        refresh_token_repository.commit(db)
+
+        return revoked_sessions

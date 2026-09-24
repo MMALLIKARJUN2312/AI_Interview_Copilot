@@ -330,6 +330,27 @@ export const api = {
   });
 },
 
+async changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const csrfToken = await requestCsrfToken();
+
+  return request<{
+    message: string;
+    revoked_sessions: number;
+  }>("/auth/change-password", {
+    method: "POST",
+    headers: {
+      "X-CSRF-Token": csrfToken,
+    },
+    body: JSON.stringify({
+      current_password: payload.currentPassword,
+      new_password: payload.newPassword,
+    }),
+  });
+},
+
   me() {
     return request<UserResponse>("/auth/me");
   },

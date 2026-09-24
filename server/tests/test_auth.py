@@ -1088,3 +1088,234 @@ def test_logout_all_revokes_every_user_session(client):
     )
 
     assert second_refresh_response.status_code == 401
+    
+def test_change_password_requires_authentication(client):
+    response = client.post(
+        "/auth/change-password",
+        json={
+            "current_password": REGISTER_PAYLOAD["password"],
+            "new_password": "new-secure-password",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_change_password_requires_csrf_token(client):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    response = client.post(
+        "/auth/change-password",
+        headers={
+            "Authorization": (
+                f"Bearer {login_response.json()['access_token']}"
+            ),
+        },
+        json={
+            "current_password": REGISTER_PAYLOAD["password"],
+            "new_password": "new-secure-password",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF validation failed"
+
+
+def test_change_password_rejects_incorrect_current_password(
+    client,
+):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    response = client.post(
+        "/auth/change-password",
+        headers={
+            "Authorization": (
+                f"Bearer {login_response.json()['access_token']}"
+            ),
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": "incorrect-password",
+            "new_password": "new-secure-password",
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "Current password is incorrect"
+    )
+
+    # The original password should still work.
+    login_again = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_again.status_code == 200
+
+
+def test_change_password_rejects_same_password(client):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    response = client.post(
+        "/auth/change-password",
+        headers={
+            "Authorization": (
+                f"Bearer {login_response.json()['access_token']}"
+            ),
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": REGISTER_PAYLOAD["password"],
+            "new_password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "New password must be different from the current password"
+    )
+
+
+def test_change_password_rejects_short_new_password(client):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+
+    response = client.post(
+        "/auth/change-password",
+        headers={
+            "Authorization": (
+                f"Bearer {login_response.json()['access_token']}"
+            ),
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": REGISTER_PAYLOAD["password"],
+            "new_password": "short",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_change_password_revokes_sessions_and_requires_new_password(
+    client,
+):
+    register_user(client)
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    old_refresh_token = client.cookies.get(
+        REFRESH_COOKIE_NAME
+    )
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+    access_token = login_response.json()["access_token"]
+    new_password = "new-secure-password"
+
+    assert old_refresh_token is not None
+    assert csrf_token is not None
+
+    response = client.post(
+        "/auth/change-password",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": REGISTER_PAYLOAD["password"],
+            "new_password": new_password,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "Password changed successfully",
+        "revoked_sessions": 1,
+    }
+    assert client.cookies.get(REFRESH_COOKIE_NAME) is None
+    assert client.cookies.get(CSRF_COOKIE_NAME) is None
+
+    # The revoked refresh session cannot be restored.
+    client.cookies.set(
+        REFRESH_COOKIE_NAME,
+        old_refresh_token,
+        path="/auth",
+    )
+    client.cookies.set(
+        CSRF_COOKIE_NAME,
+        csrf_token,
+        path="/",
+    )
+
+    refresh_response = client.post(
+        "/auth/refresh",
+        headers={
+            "X-CSRF-Token": csrf_token,
+        },
+    )
+
+    assert refresh_response.status_code == 401
+
+    client.cookies.clear()
+
+    old_password_login = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert old_password_login.status_code == 401
+
+    new_password_login = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": new_password,
+        },
+    )
+
+    assert new_password_login.status_code == 200

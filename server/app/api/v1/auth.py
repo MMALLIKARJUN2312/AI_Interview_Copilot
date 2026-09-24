@@ -10,6 +10,7 @@ from app.core.rate_limit import limiter
 from app.core.rbac import require_role
 from app.db.session import get_db
 from app.schemas.auth import (
+    ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
     TokenResponse,
@@ -241,6 +242,38 @@ def logout_all(
 
     return {
         "message": "Logged out from all sessions",
+        "revoked_sessions": revoked_sessions,
+    }
+    
+@router.post("/change-password")
+@limiter.limit("5/minute")
+def change_password(
+    request: Request,
+    response: Response,
+    payload: ChangePasswordRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request)
+
+    try:
+        revoked_sessions = AuthService.change_password(
+            db,
+            current_user,
+            payload.current_password,
+            payload.new_password,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+    clear_refresh_cookie(response)
+    clear_csrf_cookie(response)
+
+    return {
+        "message": "Password changed successfully",
         "revoked_sessions": revoked_sessions,
     }
 

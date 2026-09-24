@@ -35,6 +35,16 @@ class RegisterRequest(EmailRequest):
 class LoginRequest(EmailRequest):
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH
+    )
+
+    _validate_password_bytes = field_validator(
+        "current_password",
+        "new_password",
+    )(validate_password)
 
 class TokenResponse(BaseModel):
     access_token: str
