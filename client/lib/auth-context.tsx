@@ -30,6 +30,10 @@ interface AuthContextValue {
   ) => Promise<void>;
   logout: () => void;
   logoutAll: () => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(
@@ -131,6 +135,19 @@ export function AuthProvider({
     setUser(null);
   }
 
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    await api.changePassword({
+      currentPassword,
+      newPassword,
+    });
+
+    clearToken();
+    setUser(null);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -140,6 +157,7 @@ export function AuthProvider({
         register,
         logout,
         logoutAll,
+        changePassword,
       }}
     >
       {children}

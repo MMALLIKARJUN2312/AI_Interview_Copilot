@@ -3,6 +3,7 @@
 import {
   FileText,
   Inbox,
+  KeyRound,
   LogOut,
   MessagesSquare,
   Plus,
@@ -10,7 +11,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { ProtectedRoute } from "@/components/protected-route";
 import { Badge } from "@/components/ui/badge";
@@ -22,9 +27,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { ResumeSummary, SessionSummary } from "@/lib/types";
+import type {
+  ResumeSummary,
+  SessionSummary,
+} from "@/lib/types";
 
 function statusVariant(
   status: string,
@@ -55,15 +65,19 @@ function EmptyState({
 
 function DashboardContent() {
   const router = useRouter();
-  const { logoutAll } = useAuth();
+  const { changePassword, logoutAll } = useAuth();
 
   const [resumes, setResumes] =
     useState<ResumeSummary[] | null>(null);
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSigningOutAll, setIsSigningOutAll] =
-    useState(false);
+  const [isSigningOutAll, setIsSigningOutAll] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     Promise.all([api.listResumes(), api.listSessions()])
@@ -75,30 +89,61 @@ function DashboardContent() {
   }, []);
 
   async function handleLogoutAll(): Promise<void> {
-  const confirmed = window.confirm(
-    "Sign out from every device and browser? You will need to log in again.",
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  setError(null);
-  setIsSigningOutAll(true);
-
-  try {
-    await logoutAll();
-    router.replace("/login");
-  } catch (error) {
-    setError(
-      error instanceof Error
-        ? error.message
-        : "Unable to sign out all sessions. Please try again.",
+    const confirmed = window.confirm(
+      "Sign out from every device and browser? You will need to log in again.",
     );
-  } finally {
-    setIsSigningOutAll(false);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError(null);
+    setIsSigningOutAll(true);
+
+    try {
+      await logoutAll();
+      router.replace("/login");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign out all sessions. Please try again.",
+      );
+    } finally {
+      setIsSigningOutAll(false);
+    }
   }
-}
+
+  async function handleChangePassword(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event.preventDefault();
+    setPasswordError(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      await changePassword(
+        currentPassword,
+        newPassword,
+      );
+
+      router.replace("/login");
+    } catch (error) {
+      setPasswordError(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to change your password. Please try again.",
+      );
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
@@ -154,7 +199,7 @@ function DashboardContent() {
         )}
       </section>
 
-<section className="mb-10">
+      <section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
           <MessagesSquare className="size-4 text-muted-foreground" />
           Interview sessions
@@ -197,37 +242,124 @@ function DashboardContent() {
         )}
       </section>
       <section>
-  <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
-    <ShieldCheck className="size-4 text-muted-foreground" />
-    Account security
-  </h2>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
+          <ShieldCheck className="size-4 text-muted-foreground" />
+          Account security
+        </h2>
 
-  <Card>
-    <CardHeader>
-      <CardTitle className="text-base">
-        Active sessions
-      </CardTitle>
-      <CardDescription>
-        If you signed in on a shared computer or do not
-        recognize a session, sign out from every device.
-      </CardDescription>
-    </CardHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="size-4" />
+                Change password
+              </CardTitle>
+              <CardDescription>
+                Changing your password signs you out from every
+                device for your protection.
+              </CardDescription>
+            </CardHeader>
 
-    <CardContent>
-      <Button
-        type="button"
-        variant="destructive"
-        disabled={isSigningOutAll}
-        onClick={handleLogoutAll}
-      >
-        <LogOut className="size-4" />
-        {isSigningOutAll
-          ? "Signing out…"
-          : "Sign out all devices"}
-      </Button>
-    </CardContent>
-  </Card>
-</section>
+            <CardContent>
+              <form
+                className="flex flex-col gap-4"
+                onSubmit={handleChangePassword}
+              >
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="current-password">
+                    Current password
+                  </Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={currentPassword}
+                    onChange={(event) =>
+                      setCurrentPassword(event.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-password">
+                    New password
+                  </Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                    value={newPassword}
+                    onChange={(event) =>
+                      setNewPassword(event.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="confirm-password">
+                    Confirm new password
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                    value={confirmPassword}
+                    onChange={(event) =>
+                      setConfirmPassword(event.target.value)
+                    }
+                  />
+                </div>
+
+                {passwordError && (
+                  <p className="text-sm text-destructive">
+                    {passwordError}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isChangingPassword}
+                >
+                  {isChangingPassword
+                    ? "Changing password…"
+                    : "Change password"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Active sessions
+              </CardTitle>
+              <CardDescription>
+                If you used a shared computer or do not recognize a
+                session, sign out from every device.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isSigningOutAll}
+                onClick={handleLogoutAll}
+              >
+                <LogOut className="size-4" />
+                {isSigningOutAll
+                  ? "Signing out…"
+                  : "Sign out all devices"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }
