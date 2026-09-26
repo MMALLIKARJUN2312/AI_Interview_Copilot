@@ -3,7 +3,7 @@ uvicorn[standard]
 
 sqlalchemy
 alembic
-psycopg2-binary
+psycopg[binary]>=3.2,<4
 
 python-dotenv
 

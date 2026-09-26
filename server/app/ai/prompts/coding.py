@@ -80,7 +80,7 @@ class MachineCodingQuestionPrompt(BasePrompt):
             else ""
         )
 
-        return f"""
+        return r"""
 You are a senior interviewer running the machine-coding round for a "{target_role}"
 interview loop.
 
