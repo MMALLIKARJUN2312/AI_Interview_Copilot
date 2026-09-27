@@ -136,7 +136,7 @@ Recommended settings:
 | Runtime | Docker |
 | Branch | `main` |
 | Dockerfile path | `server/Dockerfile` |
-| Health-check path | `/health` |
+| Health-check path | `/health/ready` |
 | Auto-deploy | After CI checks pass |
 | Region | Same region as PostgreSQL |
 
@@ -376,7 +376,11 @@ Do not run Piston inside the FastAPI container.
 Check the backend:
 
 ```bash
+# FastAPI process is running.
 curl https://your-api.onrender.com/health
+
+# FastAPI process and PostgreSQL are both available.
+curl https://your-api.onrender.com/health/ready
 ```
 
 Expected response:

@@ -15,6 +15,12 @@ from app.api.v1.interview import router as interview_router
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.rate_limit import limiter
+from app.db.session import get_db
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 app = FastAPI(
     title="AI Interview Copilot",
@@ -63,3 +69,21 @@ def root():
 @app.get("/health")
 def health():
     return {"status" : "ok"}
+
+@app.get("/health/ready")
+def readiness_check(
+    db: Session = Depends(get_db),
+):
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as error:
+        logger.warning(
+            "Database readiness check failed: %s",
+            error,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from error
+
+    return {"status": "ready"}
