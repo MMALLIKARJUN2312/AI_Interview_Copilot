@@ -78,10 +78,16 @@ export function onAuthExpired(handler: () => void): () => void {
 
 export class ApiError extends Error {
   status: number;
+  requestId: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    requestId: string | null = null,
+  ) {
     super(message);
     this.status = status;
+    this.requestId = requestId;
     this.name = "ApiError";
   }
 }
@@ -148,6 +154,26 @@ async function getErrorMessage(
   return fallback;
 }
 
+function createApiError(
+  response: Response,
+  message: string,
+): ApiError {
+  const requestId = response.headers.get(
+    "X-Request-ID",
+  );
+
+  const displayMessage =
+    response.status >= 500 && requestId
+      ? `${message} (Reference: ${requestId})`
+      : message;
+
+  return new ApiError(
+    response.status,
+    displayMessage,
+    requestId,
+  );
+}
+
 async function requestCsrfToken(): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
     method: "GET",
@@ -160,7 +186,7 @@ async function requestCsrfToken(): Promise<string> {
     "Unable to initialize secure authentication",
   );
 
-  throw new ApiError(response.status, message);
+  throw createApiError(response, message);
 }
 
   const body = (await response.json()) as CsrfResponse;
@@ -266,7 +292,7 @@ if (!response.ok) {
     `Request failed with status ${response.status}`,
   );
 
-  throw new ApiError(response.status, message);
+throw createApiError(response, message);
 }
 
   if (response.status === 204) {
