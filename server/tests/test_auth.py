@@ -11,6 +11,8 @@ from app.core.tokens import hash_refresh_token
 from app.repositories.refresh_token_repository import (
     RefreshTokenRepository,
 )
+from app.models.resume import Resume, ResumeStatus
+from app.models.user import User
 
 REGISTER_PAYLOAD = {
     "full_name": "Jane Dev",
@@ -1319,3 +1321,161 @@ def test_change_password_revokes_sessions_and_requires_new_password(
     )
 
     assert new_password_login.status_code == 200
+    
+def test_delete_account_requires_authentication(client):
+    response = client.request(
+        "DELETE",
+        "/auth/account",
+        json={
+            "current_password": (
+                REGISTER_PAYLOAD["password"]
+            ),
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_delete_account_rejects_wrong_password(
+    client,
+):
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    csrf_token = client.cookies.get(
+        CSRF_COOKIE_NAME
+    )
+
+    response = client.request(
+        "DELETE",
+        "/auth/account",
+        headers={
+            "Authorization": (
+                f"Bearer "
+                f"{login_response.json()['access_token']}"
+            ),
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Current password is incorrect"
+    )
+
+
+def test_delete_account_removes_user_and_resume_file(
+    client,
+    db_engine,
+    monkeypatch,
+):
+    class FakeStorage:
+        def __init__(self):
+            self.deleted_keys = []
+
+        async def delete(self, key):
+            self.deleted_keys.append(key)
+
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.auth.get_storage_backend",
+        lambda: storage,
+    )
+
+    register_user(client)
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    with Session(db_engine) as db:
+        db.add(
+            Resume(
+                user_id=1,
+                original_filename="resume.pdf",
+                stored_filename="stored-resume.pdf",
+                mime_type="application/pdf",
+                file_size=100,
+                target_role="Backend Engineer",
+                status=ResumeStatus.ANALYZED,
+            )
+        )
+        db.commit()
+
+    csrf_token = client.cookies.get(
+        CSRF_COOKIE_NAME
+    )
+    access_token = login_response.json()[
+        "access_token"
+    ]
+
+    response = client.request(
+        "DELETE",
+        "/auth/account",
+        headers={
+            "Authorization": (
+                f"Bearer {access_token}"
+            ),
+            "X-CSRF-Token": csrf_token,
+        },
+        json={
+            "current_password": (
+                REGISTER_PAYLOAD["password"]
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "Account deleted permanently",
+        "deleted_files": 1,
+    }
+    assert storage.deleted_keys == [
+        "stored-resume.pdf",
+    ]
+    assert client.cookies.get(
+        REFRESH_COOKIE_NAME
+    ) is None
+    assert client.cookies.get(
+        CSRF_COOKIE_NAME
+    ) is None
+
+    with Session(db_engine) as db:
+        assert db.query(User).count() == 0
+        assert db.query(Resume).count() == 0
+
+    me_response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": (
+                f"Bearer {access_token}"
+            ),
+        },
+    )
+
+    assert me_response.status_code == 401
+
+    login_again = client.post(
+        "/auth/login",
+        json={
+            "email": REGISTER_PAYLOAD["email"],
+            "password": REGISTER_PAYLOAD["password"],
+        },
+    )
+
+    assert login_again.status_code == 401

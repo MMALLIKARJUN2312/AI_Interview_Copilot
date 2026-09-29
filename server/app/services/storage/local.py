@@ -16,3 +16,12 @@ class LocalStorageBackend(StorageBackend):
 
     async def read(self, key : str) -> bytes:
         return (self.base_dir / key).read_bytes()
+
+    async def delete(self, key: str) -> None:
+        path = (self.base_dir / key).resolve()
+        base_path = self.base_dir.resolve()
+
+        if path.parent != base_path:
+            raise ValueError("Invalid storage key")
+
+        path.unlink(missing_ok=True)

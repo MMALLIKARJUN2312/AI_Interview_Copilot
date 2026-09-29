@@ -8,16 +8,21 @@ from app.core.config import settings
 from app.core.dependencies import get_current_user
 from app.core.rate_limit import limiter
 from app.core.rbac import require_role
+from app.core.logger import logger
+from app.services.storage import get_storage_backend
 from app.db.session import get_db
 from app.schemas.auth import (
     ChangePasswordRequest,
+    DeleteAccountRequest,
     LoginRequest,
     RegisterRequest,
     TokenResponse,
     UserResponse,
 )
-from app.services.auth_service import AuthService
-
+from app.services.auth_service import (
+    AuthService,
+    CurrentPasswordMismatchError,
+)
 
 router = APIRouter(
     prefix="/auth",
@@ -275,6 +280,50 @@ def change_password(
     return {
         "message": "Password changed successfully",
         "revoked_sessions": revoked_sessions,
+    }
+    
+@router.delete("/account")
+@limiter.limit("3/hour")
+async def delete_account(
+    request: Request,
+    response: Response,
+    payload: DeleteAccountRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request)
+
+    try:
+        storage = get_storage_backend()
+
+        deleted_files = await AuthService.delete_account(
+            db,
+            current_user,
+            payload.current_password,
+            storage,
+        )
+    except CurrentPasswordMismatchError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        logger.exception(
+            "Account deletion failed for user_id=%s",
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to delete account",
+        ) from error
+
+    clear_refresh_cookie(response)
+    clear_csrf_cookie(response)
+
+    return {
+        "message": "Account deleted permanently",
+        "deleted_files": deleted_files,
     }
 
 @router.get("/me", response_model=UserResponse)

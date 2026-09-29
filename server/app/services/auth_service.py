@@ -10,9 +10,14 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.user_service import UserService
+from app.repositories.resume_repository import (ResumeRepository)
+from app.services.storage.base import StorageBackend
 
 refresh_token_repository = RefreshTokenRepository()
+resume_repository = ResumeRepository()
 
+class CurrentPasswordMismatchError(ValueError):
+    pass
 class AuthService:
 
     @staticmethod
@@ -148,3 +153,30 @@ class AuthService:
         refresh_token_repository.commit(db)
 
         return revoked_sessions
+    
+    @staticmethod
+    async def delete_account(db: Session, user: User, current_password: str, storage: StorageBackend) -> int:
+        if not verify_password(current_password, user.hashed_password):
+            raise CurrentPasswordMismatchError("Current password is incorrect")
+
+        resumes = resume_repository.get_user_resumes(db, user.id)
+        stored_files = [
+            resume.stored_filename
+            for resume in resumes
+        ]
+
+        try:
+            # Flush the database deletion first so relationship or
+            # constraint failures happen before removing stored files.
+            db.delete(user)
+            db.flush()
+
+            for stored_filename in stored_files:
+                await storage.delete(stored_filename)
+
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        return len(stored_files)

@@ -377,6 +377,23 @@ async changePassword(payload: {
   });
 },
 
+async deleteAccount(currentPassword: string) {
+  const csrfToken = await requestCsrfToken();
+
+  return request<{
+    message: string;
+    deleted_files: number;
+  }>("/auth/account", {
+    method: "DELETE",
+    headers: {
+      "X-CSRF-Token": csrfToken,
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+    }),
+  });
+},
+
   me() {
     return request<UserResponse>("/auth/me");
   },

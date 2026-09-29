@@ -1,4 +1,9 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+)
 
 
 MIN_PASSWORD_LENGTH = 8
@@ -13,6 +18,7 @@ def validate_password(value: str) -> str:
 
     return value
 
+
 class EmailRequest(BaseModel):
     email: EmailStr
 
@@ -24,21 +30,29 @@ class EmailRequest(BaseModel):
 
         return value
 
-class RegisterRequest(EmailRequest):
-    full_name: str = Field(min_length=2, max_length=100)
-    password: str = Field(min_length=MIN_PASSWORD_LENGTH)
 
-    _validate_password_bytes = field_validator("password")(
-        validate_password
+class RegisterRequest(EmailRequest):
+    full_name: str = Field(
+        min_length=2,
+        max_length=100,
     )
+    password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH,
+    )
+
+    _validate_password_bytes = field_validator(
+        "password",
+    )(validate_password)
+
 
 class LoginRequest(EmailRequest):
     password: str
 
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1)
     new_password: str = Field(
-        min_length=MIN_PASSWORD_LENGTH
+        min_length=MIN_PASSWORD_LENGTH,
     )
 
     _validate_password_bytes = field_validator(
@@ -46,15 +60,26 @@ class ChangePasswordRequest(BaseModel):
         "new_password",
     )(validate_password)
 
+
+class DeleteAccountRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+
+    _validate_password_bytes = field_validator(
+        "current_password",
+    )(validate_password)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
-    
+
 
 class UserResponse(BaseModel):
     id: int
     full_name: str
     email: EmailStr
     role: str
-    
-    model_config = {"from_attributes": True}
+
+    model_config = {
+        "from_attributes": True,
+    }

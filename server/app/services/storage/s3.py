@@ -18,3 +18,9 @@ class S3StorageBackend(StorageBackend):
     async def read(self, key : str) -> bytes:
         response = self.client.get_object(Bucket=self.bucket_name, Key=key)
         return response["Body"].read()
+
+    async def delete(self, key: str) -> None:
+        self.client.delete_object(
+            Bucket=self.bucket_name,
+            Key=key,
+        )
