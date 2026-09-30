@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   Plus,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -65,7 +66,11 @@ function EmptyState({
 
 function DashboardContent() {
   const router = useRouter();
-  const { changePassword, logoutAll } = useAuth();
+const {
+  changePassword,
+  deleteAccount,
+  logoutAll,
+} = useAuth();
 
   const [resumes, setResumes] =
     useState<ResumeSummary[] | null>(null);
@@ -78,6 +83,14 @@ function DashboardContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [deletePassword, setDeletePassword] =
+  useState("");
+const [deleteConfirmation, setDeleteConfirmation] =
+  useState("");
+const [deleteError, setDeleteError] =
+  useState<string | null>(null);
+const [isDeletingAccount, setIsDeletingAccount] =
+  useState(false);
 
   useEffect(() => {
     Promise.all([api.listResumes(), api.listSessions()])
@@ -144,6 +157,35 @@ function DashboardContent() {
       setIsChangingPassword(false);
     }
   }
+
+  async function handleDeleteAccount(
+  event: FormEvent<HTMLFormElement>,
+): Promise<void> {
+  event.preventDefault();
+  setDeleteError(null);
+
+  if (deleteConfirmation !== "DELETE") {
+    setDeleteError(
+      'Enter the exact word "DELETE" to confirm.',
+    );
+    return;
+  }
+
+  setIsDeletingAccount(true);
+
+  try {
+    await deleteAccount(deletePassword);
+    router.replace("/login");
+  } catch (error) {
+    setDeleteError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to delete your account. Please try again.",
+    );
+  } finally {
+    setIsDeletingAccount(false);
+  }
+}
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
@@ -359,6 +401,86 @@ function DashboardContent() {
             </CardContent>
           </Card>
         </div>
+        <Card className="mt-4 border-destructive/40">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-base text-destructive">
+      <Trash2 className="size-4" />
+      Delete account
+    </CardTitle>
+
+    <CardDescription>
+      Permanently delete your account, uploaded resumes,
+      analyses, interview sessions, feedback and active
+      sessions. This action cannot be undone.
+    </CardDescription>
+  </CardHeader>
+
+  <CardContent>
+    <form
+      className="flex max-w-md flex-col gap-4"
+      onSubmit={handleDeleteAccount}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="delete-account-password">
+          Current password
+        </Label>
+
+        <Input
+          id="delete-account-password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={deletePassword}
+          onChange={(event) =>
+            setDeletePassword(event.target.value)
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="delete-account-confirmation">
+          Enter DELETE to confirm
+        </Label>
+
+        <Input
+          id="delete-account-confirmation"
+          type="text"
+          autoComplete="off"
+          required
+          placeholder="DELETE"
+          value={deleteConfirmation}
+          onChange={(event) =>
+            setDeleteConfirmation(event.target.value)
+          }
+        />
+      </div>
+
+      {deleteError && (
+        <p
+          role="alert"
+          className="text-sm text-destructive"
+        >
+          {deleteError}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        variant="destructive"
+        disabled={
+          isDeletingAccount ||
+          !deletePassword ||
+          deleteConfirmation !== "DELETE"
+        }
+      >
+        <Trash2 className="size-4" />
+        {isDeletingAccount
+          ? "Deleting account…"
+          : "Permanently delete account"}
+      </Button>
+    </form>
+  </CardContent>
+</Card>
       </section>
     </div>
   );

@@ -34,6 +34,9 @@ interface AuthContextValue {
     currentPassword: string,
     newPassword: string,
   ) => Promise<void>;
+  deleteAccount: (
+  currentPassword: string,
+) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(
@@ -148,6 +151,15 @@ export function AuthProvider({
     setUser(null);
   }
 
+  async function deleteAccount(
+  currentPassword: string,
+): Promise<void> {
+  await api.deleteAccount(currentPassword);
+
+  clearToken();
+  setUser(null);
+}
+
   return (
     <AuthContext.Provider
       value={{
@@ -158,6 +170,7 @@ export function AuthProvider({
         logout,
         logoutAll,
         changePassword,
+        deleteAccount
       }}
     >
       {children}
