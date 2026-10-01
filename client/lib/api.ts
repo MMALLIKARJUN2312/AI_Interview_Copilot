@@ -426,6 +426,14 @@ async deleteAccount(currentPassword: string) {
     return request<ResumeSummary>(`/resume/${resumeId}`);
   },
 
+  deleteResume(resumeId: number) {
+  return request<{
+    message: string;
+  }>(`/resume/${resumeId}`, {
+    method: "DELETE",
+  });
+},
+
   getResumeAnalysis(resumeId: number) {
     return request<ResumeAnalysisResponse>(
       `/resume/${resumeId}/analysis`,

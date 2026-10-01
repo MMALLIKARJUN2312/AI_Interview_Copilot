@@ -178,3 +178,50 @@ def get_resume_analysis(
         weaknesses=analysis.weaknesses,
         suggestions=analysis.suggestions,
     )
+    
+@router.delete("/{resume_id}")
+@limiter.limit("10/hour")
+async def delete_resume(
+    request: Request,
+    resume_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    resume = resume_repository.get_by_id(
+        db,
+        resume_id,
+    )
+
+    if (
+        resume is None
+        or resume.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Resume not found",
+        )
+
+    try:
+        storage = get_storage_backend()
+
+        await ResumeService.delete_resume(
+            db,
+            resume,
+            storage,
+        )
+    except Exception as error:
+        logger.exception(
+            "Resume deletion failed: "
+            "resume_id=%s user_id=%s",
+            resume_id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to delete resume",
+        ) from error
+
+    return {
+        "message": "Resume deleted permanently",
+    }

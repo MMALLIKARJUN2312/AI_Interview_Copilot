@@ -1,9 +1,45 @@
 import io
+from sqlalchemy.orm import Session
+from app.models.resume import Resume
+from app.models.resume_analysis import ResumeAnalysis
 
 def _pdf_upload(target_role="Backend Engineer"):
     files = {"file": ("resume.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")}
     data = {"target_role": target_role}
     return files, data
+
+class FakeStorage:
+    def __init__(
+        self,
+        fail_delete: bool = False,
+    ):
+        self.saved_keys: list[str] = []
+        self.deleted_keys: list[str] = []
+        self.fail_delete = fail_delete
+
+    async def save(
+        self,
+        key: str,
+        contents: bytes,
+    ) -> None:
+        self.saved_keys.append(key)
+
+    async def read(
+        self,
+        key: str,
+    ) -> bytes:
+        return b"%PDF-1.4 fake"
+
+    async def delete(
+        self,
+        key: str,
+    ) -> None:
+        if self.fail_delete:
+            raise RuntimeError(
+                "Storage unavailable"
+            )
+
+        self.deleted_keys.append(key)
 
 def test_upload_requires_auth(client, fake_ai):
     files, data = _pdf_upload()
@@ -116,3 +152,161 @@ def test_get_resume_analysis_404_when_no_analysis_exists(client, auth_headers, d
     response = client.get(f"/resume/{resume_id}/analysis", headers=auth_headers)
 
     assert response.status_code == 404
+
+def test_delete_resume_requires_authentication(client):
+    response = client.delete("/resume/1")
+
+    assert response.status_code == 401
+
+
+def test_delete_resume_hides_other_users_resume(
+    client,
+    auth_headers,
+    other_auth_headers,
+    fake_ai,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    files, data = _pdf_upload()
+
+    upload_response = client.post(
+        "/resume/analyze",
+        headers=auth_headers,
+        files=files,
+        data=data,
+    )
+
+    resume_id = upload_response.json()[
+        "resume_id"
+    ]
+
+    response = client.delete(
+        f"/resume/{resume_id}",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Resume not found"
+    )
+    assert storage.deleted_keys == []
+
+
+def test_delete_resume_removes_file_and_database_records(
+    client,
+    auth_headers,
+    fake_ai,
+    db_engine,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    files, data = _pdf_upload()
+
+    upload_response = client.post(
+        "/resume/analyze",
+        headers=auth_headers,
+        files=files,
+        data=data,
+    )
+
+    assert upload_response.status_code == 200
+
+    resume_id = upload_response.json()[
+        "resume_id"
+    ]
+
+    assert len(storage.saved_keys) == 1
+
+    response = client.delete(
+        f"/resume/{resume_id}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "Resume deleted permanently",
+    }
+    assert storage.deleted_keys == storage.saved_keys
+
+    with Session(db_engine) as db:
+        assert (
+            db.query(Resume)
+            .filter(Resume.id == resume_id)
+            .first()
+            is None
+        )
+        assert (
+            db.query(ResumeAnalysis)
+            .filter(
+                ResumeAnalysis.resume_id
+                == resume_id
+            )
+            .count()
+            == 0
+        )
+
+    get_response = client.get(
+        f"/resume/{resume_id}",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 404
+
+
+def test_delete_resume_rolls_back_when_storage_fails(
+    client,
+    auth_headers,
+    fake_ai,
+    monkeypatch,
+):
+    storage = FakeStorage(
+        fail_delete=True,
+    )
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    files, data = _pdf_upload()
+
+    upload_response = client.post(
+        "/resume/analyze",
+        headers=auth_headers,
+        files=files,
+        data=data,
+    )
+
+    resume_id = upload_response.json()[
+        "resume_id"
+    ]
+
+    response = client.delete(
+        f"/resume/{resume_id}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Unable to delete resume"
+    )
+
+    # The database transaction was rolled back.
+    get_response = client.get(
+        f"/resume/{resume_id}",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
