@@ -1,8 +1,18 @@
 "use client";
 
-import { Code2, Laptop2, MessagesSquare } from "lucide-react";
+import {
+  Code2,
+  Laptop2,
+  MessagesSquare,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import {
+  use,
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { ProtectedRoute } from "@/components/protected-route";
 import { ScoreList } from "@/components/score-list";
@@ -75,6 +85,12 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
   );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] =
+  useState("");
+const [deleteError, setDeleteError] =
+  useState<string | null>(null);
+const [isDeleting, setIsDeleting] =
+  useState(false);
 
   useEffect(() => {
     api
@@ -121,6 +137,34 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
       setIsStarting(false);
     }
   }
+
+  async function handleDeleteResume(
+  event: FormEvent<HTMLFormElement>,
+): Promise<void> {
+  event.preventDefault();
+  setDeleteError(null);
+
+  if (deleteConfirmation !== "DELETE") {
+    setDeleteError(
+      'Enter the exact word "DELETE" to confirm.',
+    );
+    return;
+  }
+
+  setIsDeleting(true);
+
+  try {
+    await api.deleteResume(resumeId);
+    router.replace("/dashboard");
+  } catch (error) {
+    setDeleteError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to delete this resume. Please try again.",
+    );
+    setIsDeleting(false);
+  }
+}
 
   if (loadError) {
     return (
@@ -266,6 +310,84 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
           </CardContent>
         </Card>
       )}
+      <Card className="animate-fade-in-up mt-6 border-destructive/40">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-base text-destructive">
+      <Trash2 className="size-4" />
+      Delete resume
+    </CardTitle>
+
+    <CardDescription>
+      Permanently delete this resume, its uploaded PDF,
+      analysis and every interview session created from it.
+      This action cannot be undone.
+    </CardDescription>
+  </CardHeader>
+
+  <CardContent>
+    <form
+      className="flex max-w-md flex-col gap-4"
+      onSubmit={handleDeleteResume}
+    >
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <p className="font-medium">
+          {resume.original_filename}
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          Enter DELETE below to permanently remove this
+          resume and its related data.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="delete-resume-confirmation"
+          className="text-sm font-medium"
+        >
+          Enter DELETE to confirm
+        </label>
+
+        <Input
+          id="delete-resume-confirmation"
+          type="text"
+          autoComplete="off"
+          placeholder="DELETE"
+          required
+          value={deleteConfirmation}
+          onChange={(event) =>
+            setDeleteConfirmation(
+              event.target.value,
+            )
+          }
+        />
+      </div>
+
+      {deleteError && (
+        <p
+          role="alert"
+          className="text-sm text-destructive"
+        >
+          {deleteError}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        variant="destructive"
+        className="w-fit"
+        disabled={
+          isDeleting ||
+          deleteConfirmation !== "DELETE"
+        }
+      >
+        <Trash2 className="size-4" />
+        {isDeleting
+          ? "Deleting resume…"
+          : "Permanently delete resume"}
+      </Button>
+    </form>
+  </CardContent>
+</Card>
     </div>
   );
 }
