@@ -233,3 +233,74 @@ def test_mixed_round_interview_completes_with_all_round_types(client, auth_heade
     complete = client.post(f"/interview/{session_id}/complete", headers=auth_headers)
     assert complete.status_code == 200
     assert complete.json()["session"]["status"] == "completed"
+
+def test_list_sessions_supports_pagination(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    resume_id = uploaded_resume["resume_id"]
+    created_ids = []
+
+    for _ in range(3):
+        response = client.post(
+            "/interview/start",
+            headers=auth_headers,
+            json={
+                "resume_id": resume_id,
+                "rounds": [
+                    {
+                        "round_type": "general",
+                        "num_questions": 1,
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        created_ids.append(
+            response.json()["session"]["id"]
+        )
+
+    first_page = client.get(
+        "/interview/sessions"
+        "?limit=2&offset=0",
+        headers=auth_headers,
+    )
+    second_page = client.get(
+        "/interview/sessions"
+        "?limit=2&offset=2",
+        headers=auth_headers,
+    )
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+
+    assert [
+        session["id"]
+        for session in first_page.json()
+    ] == list(reversed(created_ids))[:2]
+
+    assert [
+        session["id"]
+        for session in second_page.json()
+    ] == list(reversed(created_ids))[2:]
+
+
+def test_list_sessions_rejects_invalid_pagination(
+    client,
+    auth_headers,
+):
+    invalid_requests = [
+        "/interview/sessions?limit=0",
+        "/interview/sessions?limit=51",
+        "/interview/sessions?offset=-1",
+    ]
+
+    for path in invalid_requests:
+        response = client.get(
+            path,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 422

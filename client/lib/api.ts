@@ -30,6 +30,10 @@ interface ApiValidationError {
   msg?: string;
 }
 
+interface PaginationOptions {
+  limit?: number;
+  offset?: number;
+}
 interface ApiErrorResponse {
   detail?: string | ApiValidationError[];
   message?: string;
@@ -302,6 +306,20 @@ throw createApiError(response, message);
   return (await response.json()) as T;
 }
 
+function createPaginationQuery(
+  options: PaginationOptions = {},
+): string {
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  return params.toString();
+}
+
 export const api = {
   register(payload: {
     full_name: string;
@@ -418,9 +436,15 @@ async deleteAccount(currentPassword: string) {
     });
   },
 
-  listResumes() {
-    return request<ResumeSummary[]>("/resume/");
-  },
+listResumes(
+  options: PaginationOptions = {},
+) {
+  const query = createPaginationQuery(options);
+
+  return request<ResumeSummary[]>(
+    `/resume/?${query}`,
+  );
+},
 
   getResume(resumeId: number) {
     return request<ResumeSummary>(`/resume/${resumeId}`);
@@ -502,9 +526,15 @@ async deleteAccount(currentPassword: string) {
     );
   },
 
-  listSessions() {
-    return request<SessionSummary[]>("/interview/sessions");
-  },
+  listSessions(
+  options: PaginationOptions = {},
+) {
+  const query = createPaginationQuery(options);
+
+  return request<SessionSummary[]>(
+    `/interview/sessions?${query}`,
+  );
+},
 
   getSessionDetail(sessionId: number) {
     return request<SessionDetailResponse>(

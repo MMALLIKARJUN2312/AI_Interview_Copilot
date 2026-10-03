@@ -21,6 +21,16 @@ class ResumeRepository(BaseRepository[Resume]):
     def get_user_resumes(self, db : Session, user_id : int) -> list[Resume]:
         return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at.desc()).all())
 
+    def get_user_resumes_page(self, db: Session, user_id: int, limit: int, offset: int) -> list[Resume]:
+        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(
+                Resume.created_at.desc(),
+                Resume.id.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+    
     def get_latest_resume(self, db : Session, user_id : int) -> Resume | None:
         return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at.desc()).first())
         

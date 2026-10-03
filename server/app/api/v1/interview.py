@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+)
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
@@ -155,13 +161,38 @@ def complete_interview(
         roadmap=RoadmapResponse(items=roadmap.items),
     )
 
-@router.get('/sessions', response_model=list[SessionSummary])
+@router.get(
+    "/sessions",
+    response_model=list[SessionSummary],
+)
 def list_sessions(
-    current_user : User = Depends(get_current_user),
-    db : Session = Depends(get_db),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=50,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
 ):
-    sessions = session_repository.get_user_sessions(db, current_user.id)
-    return [SessionSummary.model_validate(session) for session in sessions]
+    sessions = (
+        session_repository.get_user_sessions_page(
+            db,
+            current_user.id,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+    return [
+        SessionSummary.model_validate(session)
+        for session in sessions
+    ]
 
 @router.get('/{session_id}', response_model=SessionDetailResponse)
 def get_session_detail(

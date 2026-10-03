@@ -1,6 +1,15 @@
 import uuid
 
-from fastapi import (APIRouter, UploadFile, File, Form, Depends, HTTPException, Request)
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from sqlalchemy.orm import Session
 
 from app.services.resume_service import ResumeService
@@ -133,12 +142,31 @@ async def analyze_resume(
         logger.exception("Resume analysis failed")
         raise HTTPException(status_code=500, detail=("Resume analysis failed"))
 
-@router.get('/', response_model=list[ResumeSummary])
+@router.get(
+    "/",
+    response_model=list[ResumeSummary],
+)
 def list_resumes(
-    current_user : User = Depends(get_current_user),
-    db : Session = Depends(get_db),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=50,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
 ):
-    return resume_repository.get_user_resumes(db, current_user.id)
+    return resume_repository.get_user_resumes_page(
+        db,
+        current_user.id,
+        limit=limit,
+        offset=offset,
+    )
 
 @router.get('/{resume_id}', response_model=ResumeSummary)
 def get_resume(

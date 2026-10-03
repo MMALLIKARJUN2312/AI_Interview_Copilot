@@ -310,3 +310,80 @@ def test_delete_resume_rolls_back_when_storage_fails(
     )
 
     assert get_response.status_code == 200
+    
+def test_list_resumes_supports_pagination(
+    client,
+    auth_headers,
+    fake_ai,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    created_ids = []
+
+    for target_role in [
+        "Backend Engineer",
+        "Platform Engineer",
+        "Staff Engineer",
+    ]:
+        files, data = _pdf_upload(
+            target_role=target_role
+        )
+
+        response = client.post(
+            "/resume/analyze",
+            headers=auth_headers,
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 200
+        created_ids.append(
+            response.json()["resume_id"]
+        )
+
+    first_page = client.get(
+        "/resume/?limit=2&offset=0",
+        headers=auth_headers,
+    )
+    second_page = client.get(
+        "/resume/?limit=2&offset=2",
+        headers=auth_headers,
+    )
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+
+    assert [
+        resume["id"]
+        for resume in first_page.json()
+    ] == list(reversed(created_ids))[:2]
+
+    assert [
+        resume["id"]
+        for resume in second_page.json()
+    ] == list(reversed(created_ids))[2:]
+
+
+def test_list_resumes_rejects_invalid_pagination(
+    client,
+    auth_headers,
+):
+    invalid_requests = [
+        "/resume/?limit=0",
+        "/resume/?limit=51",
+        "/resume/?offset=-1",
+    ]
+
+    for path in invalid_requests:
+        response = client.get(
+            path,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 422
