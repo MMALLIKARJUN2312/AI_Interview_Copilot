@@ -36,6 +36,22 @@ import type {
   ResumeSummary,
   SessionSummary,
 } from "@/lib/types";
+const DASHBOARD_PAGE_SIZE = 10;
+
+function appendUniqueById<T extends { id: number }>(
+  currentItems: T[],
+  newItems: T[],
+): T[] {
+  const itemsById = new Map(
+    currentItems.map((item) => [item.id, item]),
+  );
+
+  for (const item of newItems) {
+    itemsById.set(item.id, item);
+  }
+
+  return Array.from(itemsById.values());
+}
 
 function statusVariant(
   status: string,
@@ -76,6 +92,13 @@ const {
     useState<ResumeSummary[] | null>(null);
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
+    const [hasMoreResumes, setHasMoreResumes] = useState(false);
+const [hasMoreSessions, setHasMoreSessions] = useState(false);
+
+const [isLoadingMoreResumes, setIsLoadingMoreResumes] =
+  useState(false);
+const [isLoadingMoreSessions, setIsLoadingMoreSessions] =
+  useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSigningOutAll, setIsSigningOutAll] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -92,14 +115,131 @@ const [deleteError, setDeleteError] =
 const [isDeletingAccount, setIsDeletingAccount] =
   useState(false);
 
-  useEffect(() => {
-    Promise.all([api.listResumes(), api.listSessions()])
-      .then(([resumeList, sessionList]) => {
-        setResumes(resumeList);
-        setSessions(sessionList);
-      })
-      .catch(() => setError("Unable to load your dashboard right now."));
-  }, []);
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadDashboard(): Promise<void> {
+    setError(null);
+
+    try {
+      const [resumeList, sessionList] = await Promise.all([
+        api.listResumes({
+          limit: DASHBOARD_PAGE_SIZE,
+          offset: 0,
+        }),
+        api.listSessions({
+          limit: DASHBOARD_PAGE_SIZE,
+          offset: 0,
+        }),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setResumes(resumeList);
+      setSessions(sessionList);
+
+      setHasMoreResumes(
+        resumeList.length === DASHBOARD_PAGE_SIZE,
+      );
+      setHasMoreSessions(
+        sessionList.length === DASHBOARD_PAGE_SIZE,
+      );
+    } catch {
+      if (cancelled) {
+        return;
+      }
+
+      // Prevent the dashboard from remaining in the loading state.
+      setResumes([]);
+      setSessions([]);
+      setError("Unable to load your dashboard right now.");
+    }
+  }
+
+  void loadDashboard();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+async function handleLoadMoreResumes(): Promise<void> {
+  if (
+    resumes === null ||
+    isLoadingMoreResumes ||
+    !hasMoreResumes
+  ) {
+    return;
+  }
+
+  setError(null);
+  setIsLoadingMoreResumes(true);
+
+  try {
+    const nextPage = await api.listResumes({
+      limit: DASHBOARD_PAGE_SIZE,
+      offset: resumes.length,
+    });
+
+    setResumes((currentResumes) =>
+      currentResumes === null
+        ? nextPage
+        : appendUniqueById(currentResumes, nextPage),
+    );
+
+    setHasMoreResumes(
+      nextPage.length === DASHBOARD_PAGE_SIZE,
+    );
+  } catch (error) {
+    setError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to load more resumes. Please try again.",
+    );
+  } finally {
+    setIsLoadingMoreResumes(false);
+  }
+}
+
+async function handleLoadMoreSessions(): Promise<void> {
+  if (
+    sessions === null ||
+    isLoadingMoreSessions ||
+    !hasMoreSessions
+  ) {
+    return;
+  }
+
+  setError(null);
+  setIsLoadingMoreSessions(true);
+
+  try {
+    const nextPage = await api.listSessions({
+      limit: DASHBOARD_PAGE_SIZE,
+      offset: sessions.length,
+    });
+
+    setSessions((currentSessions) =>
+      currentSessions === null
+        ? nextPage
+        : appendUniqueById(currentSessions, nextPage),
+    );
+
+    setHasMoreSessions(
+      nextPage.length === DASHBOARD_PAGE_SIZE,
+    );
+  } catch (error) {
+    setError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to load more interview sessions. Please try again.",
+    );
+  } finally {
+    setIsLoadingMoreSessions(false);
+  }
+}
 
   async function handleLogoutAll(): Promise<void> {
     const confirmed = window.confirm(
@@ -214,30 +354,49 @@ const [isDeletingAccount, setIsDeletingAccount] =
             message="No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {resumes.map((resume, index) => (
-              <Link key={resume.id} href={`/resume/${resume.id}`}>
-                <Card
-                  className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-base">
-                        {resume.target_role}
-                      </CardTitle>
-                      <Badge variant={statusVariant(resume.status)}>
-                        {resume.status}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      {resume.original_filename}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
+<>
+  <div className="grid gap-3 sm:grid-cols-2">
+    {resumes.map((resume, index) => (
+      <Link key={resume.id} href={`/resume/${resume.id}`}>
+        <Card
+          className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+          style={{ animationDelay: `${index * 0.05}s` }}
+        >
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                {resume.target_role}
+              </CardTitle>
+
+              <Badge variant={statusVariant(resume.status)}>
+                {resume.status}
+              </Badge>
+            </div>
+
+            <CardDescription>
+              {resume.original_filename}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </Link>
+    ))}
+  </div>
+
+  {hasMoreResumes && (
+    <div className="mt-4 flex justify-center">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isLoadingMoreResumes}
+        onClick={() => void handleLoadMoreResumes()}
+      >
+        {isLoadingMoreResumes
+          ? "Loading resumes…"
+          : "Load more resumes"}
+      </Button>
+    </div>
+  )}
+</>
         )}
       </section>
 
@@ -254,33 +413,55 @@ const [isDeletingAccount, setIsDeletingAccount] =
             message="No mock interviews yet. Start one from a resume's page."
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {sessions.map((session, index) => (
-              <Link key={session.id} href={`/interview/${session.id}`}>
-                <Card
-                  className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-base">
-                        {session.target_role}
-                      </CardTitle>
-                      <Badge variant={statusVariant(session.status)}>
-                        {session.status}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      {session.current_index}/{session.total_questions}{" "}
-                      answered
-                      {session.overall_score !== null &&
-                        ` · Score: ${session.overall_score}`}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
+<>
+  <div className="grid gap-3 sm:grid-cols-2">
+    {sessions.map((session, index) => (
+      <Link
+        key={session.id}
+        href={`/interview/${session.id}`}
+      >
+        <Card
+          className="animate-fade-in-up h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+          style={{ animationDelay: `${index * 0.05}s` }}
+        >
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                {session.target_role}
+              </CardTitle>
+
+              <Badge variant={statusVariant(session.status)}>
+                {session.status}
+              </Badge>
+            </div>
+
+            <CardDescription>
+              {session.current_index}/{session.total_questions}{" "}
+              answered
+              {session.overall_score !== null &&
+                ` · Score: ${session.overall_score}`}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </Link>
+    ))}
+  </div>
+
+  {hasMoreSessions && (
+    <div className="mt-4 flex justify-center">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isLoadingMoreSessions}
+        onClick={() => void handleLoadMoreSessions()}
+      >
+        {isLoadingMoreSessions
+          ? "Loading interviews…"
+          : "Load more interviews"}
+      </Button>
+    </div>
+  )}
+</>
         )}
       </section>
       <section>
