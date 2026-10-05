@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
 
     RATE_LIMIT_ENABLED: bool = True
+    
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_STORAGE_URI: str = "memory://"
+    RATE_LIMIT_KEY_PREFIX: str = "ai-interview-copilot"
 
     STORAGE_BACKEND: Literal["local", "s3"] = "local"
     LOCAL_STORAGE_DIR: str = "uploads/resumes"
@@ -61,6 +65,33 @@ class Settings(BaseSettings):
             return None
 
         return value
+    
+    @field_validator("RATE_LIMIT_STORAGE_URI")
+    @classmethod
+    def validate_rate_limit_storage_uri(cls, value: str) -> str:
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            raise ValueError(
+                "RATE_LIMIT_STORAGE_URI cannot be empty"
+            )
+
+        scheme = normalized_value.partition(":")[0].lower()
+
+        supported_schemes = {
+            "memory",
+            "redis",
+            "rediss",
+            "redis+unix",
+        }
+
+        if scheme not in supported_schemes:
+            raise ValueError(
+                "RATE_LIMIT_STORAGE_URI must use memory, "
+                "redis, rediss, or redis+unix"
+            )
+
+        return normalized_value
 
     @model_validator(mode="after")
     def validate_cookie_security(self) -> "Settings":

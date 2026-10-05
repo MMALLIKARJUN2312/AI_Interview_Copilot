@@ -70,3 +70,61 @@ def test_blank_cookie_domain_becomes_none() -> None:
     )
 
     assert settings.REFRESH_COOKIE_DOMAIN is None
+    
+def test_memory_rate_limit_storage_is_valid() -> None:
+    settings = make_settings(
+        RATE_LIMIT_STORAGE_URI="memory://",
+    )
+
+    assert (
+        settings.RATE_LIMIT_STORAGE_URI
+        == "memory://"
+    )
+
+
+def test_redis_rate_limit_storage_is_valid() -> None:
+    settings = make_settings(
+        RATE_LIMIT_STORAGE_URI=(
+            "redis://localhost:6379/0"
+        ),
+        RATE_LIMIT_KEY_PREFIX="aic-test",
+    )
+
+    assert settings.RATE_LIMIT_STORAGE_URI == (
+        "redis://localhost:6379/0"
+    )
+    assert settings.RATE_LIMIT_KEY_PREFIX == "aic-test"
+
+
+def test_secure_redis_rate_limit_storage_is_valid() -> None:
+    settings = make_settings(
+        RATE_LIMIT_STORAGE_URI=(
+            "rediss://redis.example.com:6379/0"
+        ),
+    )
+
+    assert settings.RATE_LIMIT_STORAGE_URI.startswith(
+        "rediss://"
+    )
+
+
+def test_rate_limit_storage_rejects_unsupported_scheme() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="RATE_LIMIT_STORAGE_URI must use",
+    ):
+        make_settings(
+            RATE_LIMIT_STORAGE_URI=(
+                "http://localhost:6379"
+            ),
+        )
+
+
+def test_rate_limit_storage_rejects_blank_value() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="RATE_LIMIT_STORAGE_URI cannot be empty",
+    ):
+        make_settings(
+            RATE_LIMIT_STORAGE_URI="   ",
+        )

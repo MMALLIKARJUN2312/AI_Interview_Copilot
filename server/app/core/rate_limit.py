@@ -3,4 +3,10 @@ from slowapi.util import get_remote_address
 
 from app.core.config import settings
 
-limiter = Limiter(key_func=get_remote_address, enabled=settings.RATE_LIMIT_ENABLED)
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    enabled=settings.RATE_LIMIT_ENABLED,
+    storage_uri=settings.RATE_LIMIT_STORAGE_URI,
+    key_prefix=settings.RATE_LIMIT_KEY_PREFIX,
+)

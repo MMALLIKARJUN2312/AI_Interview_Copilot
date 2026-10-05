@@ -20,6 +20,7 @@ Each submitted answer receives feedback and a score. Completed interviews produc
 - Role-specific ATS analysis
 - Job-description-aware recommendations
 - Configurable multi-round mock interviews
+- Configurable in-memory or shared Redis rate-limit storage
 - DSA and machine-coding rounds
 - Real code execution through a self-hosted Piston service
 - Hidden and visible coding test cases
@@ -527,7 +528,9 @@ Before treating the application as a commercial SaaS, address:
 
 - Browser refresh tokens are currently stored in local storage.
 - AI processing occurs inside HTTP requests instead of background jobs.
-- Rate limiting uses process memory instead of a shared Redis store.
+- Rate limiting uses process memory by default; production deployments that
+  run multiple API instances must configure `RATE_LIMIT_STORAGE_URI` with a
+  shared Redis service.
 - Local resume storage supports only a single persistent API instance.
 - Piston requires separate privileged Linux infrastructure.
 - Historical migrations require a data-preservation audit.

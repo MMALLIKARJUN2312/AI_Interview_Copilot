@@ -75,7 +75,10 @@ OPENROUTER_API_KEY=
 OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free
 
 CORS_ORIGINS=
+
 RATE_LIMIT_ENABLED=true
+RATE_LIMIT_STORAGE_URI=
+RATE_LIMIT_KEY_PREFIX=ai-interview-copilot
 
 STORAGE_BACKEND=s3
 S3_BUCKET_NAME=
@@ -189,7 +192,22 @@ GEMINI_API_KEY=<secret>
 GROQ_API_KEY=<secret>
 
 CORS_ORIGINS=https://your-vercel-domain.vercel.app
+
 RATE_LIMIT_ENABLED=true
+RATE_LIMIT_STORAGE_URI=rediss://default:<password>@<host>:<port>/0
+RATE_LIMIT_KEY_PREFIX=ai-interview-copilot-production
+
+### Shared rate-limit storage
+
+The default `memory://` rate-limit storage is acceptable only for local
+development or a single API process.
+
+When multiple backend processes or instances serve traffic, configure a shared
+Redis-compatible service:
+
+```env
+RATE_LIMIT_STORAGE_URI=rediss://default:<password>@<host>:<port>/0
+RATE_LIMIT_KEY_PREFIX=ai-interview-copilot-production
 
 STORAGE_BACKEND=s3
 S3_BUCKET_NAME=<private-bucket-name>
