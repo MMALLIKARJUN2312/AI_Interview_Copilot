@@ -1,6 +1,10 @@
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import (
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +40,7 @@ class Settings(BaseSettings):
 
     # Self-host Piston for production traffic and point this URL at it.
     CODE_EXECUTION_API_URL: str = "http://localhost:2000/api/v2"
+    CODE_EXECUTION_AUTH_TOKEN: SecretStr | None = None
     CODE_EXECUTION_TIMEOUT_SECONDS: int = 15
 
     # Comma-separated providers, tried in order until one succeeds.
@@ -55,9 +60,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("REFRESH_COOKIE_DOMAIN", mode="before")
+    @field_validator("REFRESH_COOKIE_DOMAIN", "CODE_EXECUTION_AUTH_TOKEN", mode="before")
     @classmethod
-    def empty_cookie_domain_as_none(
+    def empty_optional_value_as_none(
         cls,
         value: object,
     ) -> object:

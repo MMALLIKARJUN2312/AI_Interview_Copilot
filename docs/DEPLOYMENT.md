@@ -86,7 +86,8 @@ AWS_REGION=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 
-CODE_EXECUTION_API_URL=
+CODE_EXECUTION_API_URL=https://private-code-runner.example.com/api/v2
+CODE_EXECUTION_AUTH_TOKEN=<private-proxy-token>
 CODE_EXECUTION_TIMEOUT_SECONDS=15
 ```
 
@@ -380,7 +381,7 @@ Production Piston controls should include:
 - strict execution time limits;
 - strict memory and process limits;
 - private-network or firewall-based access control;
-- request authentication after backend support for an authorization header is implemented;
+- bearer-token authentication between FastAPI and the private Piston proxy;
 - per-user execution quotas;
 - API rate limits;
 - request and error monitoring;
@@ -388,6 +389,31 @@ Production Piston controls should include:
 - regular image and runtime updates.
 
 Do not run Piston inside the FastAPI container.
+
+### Authenticate the Piston proxy
+
+Piston itself does not provide application-level bearer authentication. Place a
+private reverse proxy or API gateway in front of Piston and configure it to
+validate a secret bearer token.
+
+Configure the same secret in the FastAPI deployment:
+
+```env
+CODE_EXECUTION_API_URL=https://private-code-runner.example.com/api/v2
+CODE_EXECUTION_AUTH_TOKEN=<private-proxy-token>
+```
+
+The backend sends:
+
+```http
+Authorization: Bearer <private-proxy-token>
+```
+
+Leave `CODE_EXECUTION_AUTH_TOKEN` empty only when the code runner is reachable
+exclusively through a trusted local or private network.
+
+Never place this token in frontend variables or expose it through a
+`NEXT_PUBLIC_*` setting.
 
 ## Validate the Vercel and Render deployment
 

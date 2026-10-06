@@ -128,3 +128,27 @@ def test_rate_limit_storage_rejects_blank_value() -> None:
         make_settings(
             RATE_LIMIT_STORAGE_URI="   ",
         )
+        
+def test_code_execution_auth_token_is_secret() -> None:
+    settings = make_settings(
+        CODE_EXECUTION_AUTH_TOKEN=(
+            "private-runner-token"
+        ),
+    )
+
+    assert settings.CODE_EXECUTION_AUTH_TOKEN is not None
+    assert (
+        settings.CODE_EXECUTION_AUTH_TOKEN.get_secret_value()
+        == "private-runner-token"
+    )
+    assert "private-runner-token" not in repr(
+        settings.CODE_EXECUTION_AUTH_TOKEN
+    )
+
+
+def test_blank_code_execution_auth_token_becomes_none() -> None:
+    settings = make_settings(
+        CODE_EXECUTION_AUTH_TOKEN="   ",
+    )
+
+    assert settings.CODE_EXECUTION_AUTH_TOKEN is None

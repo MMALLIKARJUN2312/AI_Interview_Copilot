@@ -34,9 +34,18 @@ class CodeExecutionService:
     """
 
     def __init__(self) -> None:
-        self.base_url = settings.CODE_EXECUTION_API_URL.rstrip("/")
-        self.timeout = settings.CODE_EXECUTION_TIMEOUT_SECONDS
+        self.base_url = (settings.CODE_EXECUTION_API_URL.rstrip("/"))
+        self.timeout = (settings.CODE_EXECUTION_TIMEOUT_SECONDS)
 
+        auth_token = settings.CODE_EXECUTION_AUTH_TOKEN
+
+        self.headers: dict[str, str] = {}
+
+        if auth_token is not None:
+            self.headers["Authorization"] = (
+                f"Bearer {auth_token.get_secret_value()}"
+            )
+            
     def run(self, language : str, code : str, stdin : str = "") -> ExecutionOutcome:
         runtime = PISTON_RUNTIMES.get(language)
 
@@ -52,7 +61,11 @@ class CodeExecutionService:
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                response = client.post(f"{self.base_url}/execute", json=payload)
+                response = client.post(
+                    f"{self.base_url}/execute",
+                    json=payload,
+                    headers=self.headers,
+                )
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPStatusError as error:
