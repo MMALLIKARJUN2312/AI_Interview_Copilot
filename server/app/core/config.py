@@ -28,8 +28,6 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
 
     RATE_LIMIT_ENABLED: bool = True
-    
-    RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_STORAGE_URI: str = "memory://"
     RATE_LIMIT_KEY_PREFIX: str = "ai-interview-copilot"
 
@@ -60,7 +58,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("REFRESH_COOKIE_DOMAIN", "CODE_EXECUTION_AUTH_TOKEN", mode="before")
+    @field_validator(
+        "REFRESH_COOKIE_DOMAIN",
+        "CODE_EXECUTION_AUTH_TOKEN",
+        mode="before",
+    )
     @classmethod
     def empty_optional_value_as_none(
         cls,
