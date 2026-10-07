@@ -198,10 +198,21 @@ RATE_LIMIT_ENABLED=true
 RATE_LIMIT_STORAGE_URI=rediss://default:<password>@<host>:<port>/0
 RATE_LIMIT_KEY_PREFIX=ai-interview-copilot-production
 
+STORAGE_BACKEND=s3
+S3_BUCKET_NAME=<private-bucket-name>
+AWS_REGION=<bucket-region>
+AWS_ACCESS_KEY_ID=<secret>
+AWS_SECRET_ACCESS_KEY=<secret>
+
+CODE_EXECUTION_API_URL=https://private-code-runner.example.com/api/v2
+CODE_EXECUTION_AUTH_TOKEN=<private-proxy-token>
+CODE_EXECUTION_TIMEOUT_SECONDS=15
+```
+
 ### Shared rate-limit storage
 
-The default `memory://` rate-limit storage is acceptable only for local
-development or a single API process.
+The default `memory://` rate-limit storage is acceptable for local development
+or a single API process.
 
 When multiple backend processes or instances serve traffic, configure a shared
 Redis-compatible service:
@@ -209,16 +220,15 @@ Redis-compatible service:
 ```env
 RATE_LIMIT_STORAGE_URI=rediss://default:<password>@<host>:<port>/0
 RATE_LIMIT_KEY_PREFIX=ai-interview-copilot-production
-
-STORAGE_BACKEND=s3
-S3_BUCKET_NAME=<private-bucket-name>
-AWS_REGION=<bucket-region>
-AWS_ACCESS_KEY_ID=<secret>
-AWS_SECRET_ACCESS_KEY=<secret>
-
-CODE_EXECUTION_API_URL=http://private-piston-host:2000/api/v2
-CODE_EXECUTION_TIMEOUT_SECONDS=15
 ```
+
+Use `rediss://` when the Redis provider requires TLS. Store the Redis URL only
+in the hosting platform's secret settings because it normally contains
+authentication credentials.
+
+Do not enable an in-memory fallback in production. If Redis becomes unavailable,
+failing closed prevents expensive AI and code-execution operations from running
+without rate limits.
 
 The CORS origin must:
 

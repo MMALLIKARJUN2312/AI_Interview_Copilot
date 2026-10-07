@@ -526,7 +526,8 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
 
 Before treating the application as a commercial SaaS, address:
 
-- Browser refresh tokens are currently stored in local storage.
+- Production authentication requires HTTPS and correct cross-site cookie
+  configuration when the frontend and backend use unrelated domains.
 - AI processing occurs inside HTTP requests instead of background jobs.
 - Rate limiting uses process memory by default; production deployments that
   run multiple API instances must configure `RATE_LIMIT_STORAGE_URI` with a
