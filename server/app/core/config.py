@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     RATE_LIMIT_STORAGE_URI: str = "memory://"
     RATE_LIMIT_KEY_PREFIX: str = "ai-interview-copilot"
 
+    RESUME_ANALYSIS_DAILY_LIMIT: str = "3/day"
+    INTERVIEW_START_DAILY_LIMIT: str = "3/day"
+    INTERVIEW_ANSWER_DAILY_LIMIT: str = "30/day"
+    CODE_EXECUTION_DAILY_LIMIT: str = "50/day"
+    INTERVIEW_COMPLETION_DAILY_LIMIT: str = "3/day"
+
     STORAGE_BACKEND: Literal["local", "s3"] = "local"
     LOCAL_STORAGE_DIR: str = "uploads/resumes"
     S3_BUCKET_NAME: str | None = None

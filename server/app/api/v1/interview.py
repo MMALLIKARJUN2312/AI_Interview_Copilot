@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.core.logger import logger
-from app.core.rate_limit import limiter
+from app.core.config import settings
+from app.core.rate_limit import (
+    account_or_ip_key,
+    limiter,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.repositories.interview_repository import InterviewSessionRepository
@@ -45,7 +49,14 @@ question_repository = InterviewQuestionRepository()
 feedback_repository = InterviewFeedbackRepository()
 roadmap_repository = LearningRoadmapRepository()
 
-@router.post('/start', response_model=StartInterviewResponse)
+@router.post(
+    "/start",
+    response_model=StartInterviewResponse,
+)
+@limiter.limit(
+    settings.INTERVIEW_START_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
 @limiter.limit("10/hour")
 def start_interview(
     request : Request,
@@ -75,7 +86,14 @@ def start_interview(
         first_question=QuestionResponse.model_validate(first_question) if first_question else None,
     )
 
-@router.post('/{session_id}/answer', response_model=SubmitAnswerResponse)
+@router.post(
+    "/{session_id}/answer",
+    response_model=SubmitAnswerResponse,
+)
+@limiter.limit(
+    settings.INTERVIEW_ANSWER_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
 @limiter.limit("60/hour")
 def submit_answer(
     request : Request,
@@ -103,7 +121,14 @@ def submit_answer(
         is_complete=next_question is None,
     )
 
-@router.post('/{session_id}/run-code', response_model=RunCodeResponse)
+@router.post(
+    "/{session_id}/run-code",
+    response_model=RunCodeResponse,
+)
+@limiter.limit(
+    settings.CODE_EXECUTION_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
 @limiter.limit("30/hour")
 def run_code(
     request : Request,
@@ -136,7 +161,14 @@ def run_code(
         all_passed=all(result.passed for result in results),
     )
 
-@router.post('/{session_id}/complete', response_model=CompleteInterviewResponse)
+@router.post(
+    "/{session_id}/complete",
+    response_model=CompleteInterviewResponse,
+)
+@limiter.limit(
+    settings.INTERVIEW_COMPLETION_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
 @limiter.limit("20/hour")
 def complete_interview(
     request : Request,

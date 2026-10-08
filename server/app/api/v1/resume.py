@@ -17,7 +17,11 @@ from app.services.storage import get_storage_backend
 from app.core.constants import (MAX_RESUME_SIZE, ALLOWED_RESUME_TYPES, PDF_MAGIC_BYTES)
 from app.core.logger import logger
 from app.core.dependencies import get_current_user
-from app.core.rate_limit import limiter
+from app.core.config import settings
+from app.core.rate_limit import (
+    account_or_ip_key,
+    limiter,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.models.resume import Resume, ResumeStatus
@@ -35,7 +39,14 @@ router = APIRouter(
 resume_repository = ResumeRepository()
 resume_analysis_repository = ResumeAnalysisRepository()
 
-@router.post('/analyze', response_model=ResumeAnalysisResponse)
+@router.post(
+    "/analyze",
+    response_model=ResumeAnalysisResponse,
+)
+@limiter.limit(
+    settings.RESUME_ANALYSIS_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
 @limiter.limit("10/hour")
 async def analyze_resume(
     request : Request,

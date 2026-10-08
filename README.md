@@ -21,6 +21,7 @@ Each submitted answer receives feedback and a score. Completed interviews produc
 - Job-description-aware recommendations
 - Configurable multi-round mock interviews
 - Configurable in-memory or shared Redis rate-limit storage
+- Configurable account-level daily usage quotas
 - DSA and machine-coding rounds
 - Real code execution through a self-hosted Piston service
 - Hidden and visible coding test cases
@@ -536,7 +537,8 @@ Before treating the application as a commercial SaaS, address:
 - Piston requires separate privileged Linux infrastructure.
 - Historical migrations require a data-preservation audit.
 - Python dependencies are not fully locked.
-- Billing, subscriptions and account-level quotas are not implemented.
+- Billing, subscriptions and plan-aware quotas are not implemented; the current
+  account quotas are fixed environment-level limits shared by every account.
 - Email verification and password recovery are not implemented.
 - CI does not currently perform production deployment.
 

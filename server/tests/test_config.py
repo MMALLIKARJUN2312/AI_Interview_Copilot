@@ -152,3 +152,58 @@ def test_blank_code_execution_auth_token_becomes_none() -> None:
     )
 
     assert settings.CODE_EXECUTION_AUTH_TOKEN is None
+    
+def test_default_daily_account_quotas() -> None:
+    settings = make_settings()
+
+    assert (
+        settings.RESUME_ANALYSIS_DAILY_LIMIT
+        == "3/day"
+    )
+    assert (
+        settings.INTERVIEW_START_DAILY_LIMIT
+        == "3/day"
+    )
+    assert (
+        settings.INTERVIEW_ANSWER_DAILY_LIMIT
+        == "30/day"
+    )
+    assert (
+        settings.CODE_EXECUTION_DAILY_LIMIT
+        == "50/day"
+    )
+    assert (
+        settings.INTERVIEW_COMPLETION_DAILY_LIMIT
+        == "3/day"
+    )
+
+
+def test_daily_account_quotas_are_configurable() -> None:
+    settings = make_settings(
+        RESUME_ANALYSIS_DAILY_LIMIT="10/day",
+        INTERVIEW_START_DAILY_LIMIT="8/day",
+        INTERVIEW_ANSWER_DAILY_LIMIT="100/day",
+        CODE_EXECUTION_DAILY_LIMIT="200/day",
+        INTERVIEW_COMPLETION_DAILY_LIMIT="8/day",
+    )
+
+    assert (
+        settings.RESUME_ANALYSIS_DAILY_LIMIT
+        == "10/day"
+    )
+    assert (
+        settings.INTERVIEW_START_DAILY_LIMIT
+        == "8/day"
+    )
+    assert (
+        settings.INTERVIEW_ANSWER_DAILY_LIMIT
+        == "100/day"
+    )
+    assert (
+        settings.CODE_EXECUTION_DAILY_LIMIT
+        == "200/day"
+    )
+    assert (
+        settings.INTERVIEW_COMPLETION_DAILY_LIMIT
+        == "8/day"
+    )
