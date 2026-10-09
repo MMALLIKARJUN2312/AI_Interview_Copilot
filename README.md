@@ -34,6 +34,7 @@ Each submitted answer receives feedback and a score. Completed interviews produc
 - PostgreSQL and Alembic migrations
 - Automated backend, migration, frontend, and Docker CI checks
 - Production Docker images
+- Production browser security headers
 
 ## Architecture
 
@@ -541,6 +542,7 @@ Before treating the application as a commercial SaaS, address:
   account quotas are fixed environment-level limits shared by every account.
 - Email verification and password recovery are not implemented.
 - CI does not currently perform production deployment.
+- A strict nonce-based Content Security Policy is not yet configured.
 
 ## License
 

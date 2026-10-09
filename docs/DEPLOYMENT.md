@@ -284,6 +284,24 @@ CORS_ORIGINS=https://app.example.com
 
 Use a separate backend and database for preview deployments if previews should not access production data.
 
+## Frontend security headers
+
+The Next.js application configures baseline security headers for every route:
+
+- `X-Content-Type-Options`
+- `X-Frame-Options`
+- `Referrer-Policy`
+- `Permissions-Policy`
+- `Cross-Origin-Opener-Policy`
+- `Cross-Origin-Resource-Policy`
+- `X-DNS-Prefetch-Control`
+- `X-Permitted-Cross-Domain-Policies`
+
+Production builds additionally send:
+
+```text
+Strict-Transport-Security: max-age=31536000
+
 ## Configure production resume storage
 
 Do not use local storage on Render.
@@ -680,3 +698,4 @@ Before inviting real users:
 - [ ] Privacy and retention policies are published.
 - [ ] Restore procedures have been tested.
 - [ ] Preview deployments cannot access production data unintentionally.
+- [ ] Frontend security headers are present on the deployed application.
