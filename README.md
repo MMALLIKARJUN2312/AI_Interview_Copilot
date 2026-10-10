@@ -18,6 +18,7 @@ Each submitted answer receives feedback and a score. Completed interviews produc
 - Rotating refresh-token authentication
 - PDF resume upload and text extraction
 - Role-specific ATS analysis
+- Branded loading, not-found and runtime-error recovery screens
 - Job-description-aware recommendations
 - Configurable multi-round mock interviews
 - Configurable in-memory or shared Redis rate-limit storage
