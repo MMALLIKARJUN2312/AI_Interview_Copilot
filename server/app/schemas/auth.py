@@ -1,5 +1,6 @@
 from pydantic import (
     BaseModel,
+    ConfigDict,
     EmailStr,
     Field,
     field_validator,
@@ -18,6 +19,11 @@ def validate_password(value: str) -> str:
 
     return value
 
+def normalize_full_name(value: object) -> object:
+    if isinstance(value, str):
+        return value.strip()
+
+    return value
 
 class EmailRequest(BaseModel):
     email: EmailStr
@@ -40,9 +46,15 @@ class RegisterRequest(EmailRequest):
         min_length=MIN_PASSWORD_LENGTH,
     )
 
+    _normalize_full_name = field_validator(
+        "full_name",
+        mode="before",
+    )(normalize_full_name)
+
     _validate_password_bytes = field_validator(
         "password",
     )(validate_password)
+
 
 
 class LoginRequest(EmailRequest):
@@ -68,6 +80,20 @@ class DeleteAccountRequest(BaseModel):
         "current_password",
     )(validate_password)
 
+class UpdateProfileRequest(BaseModel):
+    full_name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    _normalize_full_name = field_validator(
+        "full_name",
+        mode="before",
+    )(normalize_full_name)
 
 class TokenResponse(BaseModel):
     access_token: str

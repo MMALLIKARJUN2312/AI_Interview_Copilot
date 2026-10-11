@@ -1479,3 +1479,126 @@ def test_delete_account_removes_user_and_resume_file(
     )
 
     assert login_again.status_code == 401
+    
+    def test_update_profile_changes_full_name(client, auth_headers):
+        csrf_token = issue_csrf_token(client)
+
+        response = client.patch(
+            "/auth/me",
+            headers={
+                **auth_headers,
+                settings.CSRF_HEADER_NAME: csrf_token,
+            },
+            json={
+                "full_name": "  Updated User  ",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": 1,
+            "full_name": "Updated User",
+            "email": "user@example.com",
+            "role": "candidate",
+        }
+
+        me_response = client.get(
+            "/auth/me",
+            headers=auth_headers,
+        )
+
+        assert me_response.status_code == 200
+        assert (
+            me_response.json()["full_name"]
+            == "Updated User"
+        )
+
+
+    def test_update_profile_requires_authentication(client):
+        response = client.patch(
+            "/auth/me",
+            json={
+                "full_name": "Updated User",
+            },
+        )
+
+        assert response.status_code == 401
+
+
+    def test_update_profile_requires_csrf_token(client, auth_headers):
+        response = client.patch(
+            "/auth/me",
+            headers=auth_headers,
+            json={
+                "full_name": "Updated User",
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "CSRF validation failed"
+        )
+
+
+    @pytest.mark.parametrize(
+        "full_name",
+        [
+            "",
+            " ",
+            "A",
+            "A" * 101,
+        ],
+    )
+
+    def test_update_profile_rejects_invalid_name(
+        client,
+        auth_headers,
+        full_name,
+    ):
+        csrf_token = issue_csrf_token(client)
+
+        response = client.patch(
+            "/auth/me",
+            headers={
+                **auth_headers,
+                settings.CSRF_HEADER_NAME: csrf_token,
+            },
+            json={
+                "full_name": full_name,
+            },
+        )
+
+        assert response.status_code == 422
+
+
+    def test_update_profile_rejects_protected_fields(
+        client,
+        auth_headers,
+    ):
+        csrf_token = issue_csrf_token(client)
+
+        response = client.patch(
+            "/auth/me",
+            headers={
+                **auth_headers,
+                settings.CSRF_HEADER_NAME: csrf_token,
+            },
+            json={
+                "full_name": "Updated User",
+                "email": "attacker@example.com",
+                "role": "admin",
+            },
+        )
+
+        assert response.status_code == 422
+
+        me_response = client.get(
+            "/auth/me",
+            headers=auth_headers,
+        )
+
+        assert me_response.status_code == 200
+        assert me_response.json()["email"] == (
+            "user@example.com"
+        )
+        assert me_response.json()["role"] == "candidate"

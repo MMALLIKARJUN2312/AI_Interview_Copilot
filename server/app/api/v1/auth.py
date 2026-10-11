@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user
-from app.core.rate_limit import limiter
+from app.core.rate_limit import (
+    account_or_ip_key,
+    limiter,
+)
 from app.core.rbac import require_role
 from app.core.logger import logger
 from app.services.storage import get_storage_backend
@@ -17,12 +20,14 @@ from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
 )
 from app.services.auth_service import (
     AuthService,
     CurrentPasswordMismatchError,
 )
+from app.services.user_service import UserService
 
 router = APIRouter(
     prefix="/auth",
@@ -330,6 +335,27 @@ async def delete_account(
 def me(current_user=Depends(get_current_user)):
     return current_user
 
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+)
+@limiter.limit(
+    "10/hour",
+    key_func=account_or_ip_key,
+)
+def update_profile(
+    request: Request,
+    payload: UpdateProfileRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request)
+
+    return UserService.update_profile(
+        db,
+        current_user,
+        payload.full_name,
+    )
 
 @router.get("/admin")
 def admin_dashboard(

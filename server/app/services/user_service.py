@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
@@ -52,3 +52,21 @@ class UserService:
         user_id: int,
     ) -> User | None:
         return cls.repository.get_by_id(db, user_id)
+    
+    @classmethod
+    def update_profile(cls, db: Session, user: User, full_name: str) -> User:
+        user.full_name = full_name
+
+        cls.repository.update(
+            db,
+            user,
+        )
+
+        try:
+            cls.repository.commit(db)
+            cls.repository.refresh(db, user)
+        except SQLAlchemyError:
+            cls.repository.rollback(db)
+            raise
+
+        return user
