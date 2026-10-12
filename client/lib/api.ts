@@ -416,6 +416,20 @@ async deleteAccount(currentPassword: string) {
     return request<UserResponse>("/auth/me");
   },
 
+  async updateProfile(fullName: string) {
+  const csrfToken = await requestCsrfToken();
+
+  return request<UserResponse>("/auth/me", {
+    method: "PATCH",
+    headers: {
+      "X-CSRF-Token": csrfToken,
+    },
+    body: JSON.stringify({
+      full_name: fullName,
+    }),
+  });
+},
+
   uploadResume(payload: {
     file: File;
     targetRole: string;

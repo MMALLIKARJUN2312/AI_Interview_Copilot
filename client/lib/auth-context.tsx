@@ -34,6 +34,9 @@ interface AuthContextValue {
     currentPassword: string,
     newPassword: string,
   ) => Promise<void>;
+  updateProfile: (
+  fullName: string,
+) => Promise<void>;
   deleteAccount: (
   currentPassword: string,
 ) => Promise<void>;
@@ -151,6 +154,16 @@ export function AuthProvider({
     setUser(null);
   }
 
+async function updateProfile(
+  fullName: string,
+): Promise<void> {
+  const updatedUser = await api.updateProfile(
+    fullName,
+  );
+
+  setUser(updatedUser);
+}
+
   async function deleteAccount(
   currentPassword: string,
 ): Promise<void> {
@@ -170,6 +183,7 @@ export function AuthProvider({
         logout,
         logoutAll,
         changePassword,
+        updateProfile,
         deleteAccount
       }}
     >

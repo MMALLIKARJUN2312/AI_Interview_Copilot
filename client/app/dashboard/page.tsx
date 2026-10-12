@@ -9,6 +9,7 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
+  UserRound
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -82,11 +83,13 @@ function EmptyState({
 
 function DashboardContent() {
   const router = useRouter();
-const {
-  changePassword,
-  deleteAccount,
-  logoutAll,
-} = useAuth();
+  const {
+    user,
+    changePassword,
+    deleteAccount,
+    logoutAll,
+    updateProfile,
+  } = useAuth();
 
   const [resumes, setResumes] =
     useState<ResumeSummary[] | null>(null);
@@ -106,6 +109,14 @@ const [isLoadingMoreSessions, setIsLoadingMoreSessions] =
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [profileFullName, setProfileFullName] =
+  useState(user?.full_name ?? "");
+const [profileError, setProfileError] =
+  useState<string | null>(null);
+const [profileSuccess, setProfileSuccess] =
+  useState<string | null>(null);
+const [isUpdatingProfile, setIsUpdatingProfile] =
+  useState(false);
   const [deletePassword, setDeletePassword] =
   useState("");
 const [deleteConfirmation, setDeleteConfirmation] =
@@ -114,6 +125,8 @@ const [deleteError, setDeleteError] =
   useState<string | null>(null);
 const [isDeletingAccount, setIsDeletingAccount] =
   useState(false);
+
+  
 
 useEffect(() => {
   let cancelled = false;
@@ -266,6 +279,43 @@ async function handleLoadMoreSessions(): Promise<void> {
       setIsSigningOutAll(false);
     }
   }
+
+  async function handleUpdateProfile(
+  event: FormEvent<HTMLFormElement>,
+): Promise<void> {
+  event.preventDefault();
+
+  const normalizedName = profileFullName.trim();
+
+  setProfileError(null);
+  setProfileSuccess(null);
+
+  if (
+    normalizedName.length < 2 ||
+    normalizedName.length > 100
+  ) {
+    setProfileError(
+      "Your name must contain between 2 and 100 characters.",
+    );
+    return;
+  }
+
+  setIsUpdatingProfile(true);
+
+  try {
+    await updateProfile(normalizedName);
+    setProfileFullName(normalizedName);
+    setProfileSuccess("Profile updated successfully.");
+  } catch (error) {
+    setProfileError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to update your profile. Please try again.",
+    );
+  } finally {
+    setIsUpdatingProfile(false);
+  }
+}
 
   async function handleChangePassword(
     event: FormEvent<HTMLFormElement>,
@@ -464,6 +514,12 @@ async function handleLoadMoreSessions(): Promise<void> {
 </>
         )}
       </section>
+      <section className="mb-10">
+  <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
+    <UserRound className="size-4 text-muted-foreground" />
+    Profile
+  </h2>
+  </section>
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
           <ShieldCheck className="size-4 text-muted-foreground" />

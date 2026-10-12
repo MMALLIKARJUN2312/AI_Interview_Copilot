@@ -19,6 +19,7 @@ Each submitted answer receives feedback and a score. Completed interviews produc
 - PDF resume upload and text extraction
 - Role-specific ATS analysis
 - Branded loading, not-found and runtime-error recovery screens
+- Editable user display profiles
 - Job-description-aware recommendations
 - Configurable multi-round mock interviews
 - Configurable in-memory or shared Redis rate-limit storage
@@ -486,6 +487,7 @@ Model availability changes over time. Override the corresponding model environme
 | `POST` | `/auth/refresh` | Rotate refresh token |
 | `POST` | `/auth/logout` | Revoke refresh token |
 | `GET` | `/auth/me` | Get the current user |
+| `PATCH` | `/auth/me` | Update the current user's display profile |
 | `POST` | `/resume/analyze` | Upload and analyze a resume |
 | `GET` | `/resume/` | List resumes |
 | `POST` | `/interview/start` | Generate an interview |

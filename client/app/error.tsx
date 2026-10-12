@@ -1,6 +1,5 @@
 "use client";
 
-import type { ErrorInfo } from "next/error";
 import { CircleAlert, House, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";

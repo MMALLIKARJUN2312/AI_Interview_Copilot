@@ -1,7 +1,6 @@
 "use client";
 
 import Link from 'next/link'
-import type { ErrorInfo } from "next/error";
 import { useEffect } from "react";
 
 const pageStyle = {
