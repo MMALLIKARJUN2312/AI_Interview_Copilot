@@ -33,5 +33,5 @@ pypdf
 tenacity>=9.0.0
 
 slowapi
-redis>=5,<8
+redis>=8.1.0,<9
 boto3
