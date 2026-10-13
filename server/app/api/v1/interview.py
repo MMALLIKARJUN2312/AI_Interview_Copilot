@@ -226,6 +226,45 @@ def list_sessions(
         for session in sessions
     ]
 
+@router.delete("/{session_id}")
+@limiter.limit(
+    "10/hour",
+    key_func=account_or_ip_key,
+)
+def delete_interview_session(
+    request: Request,
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        interview_service.delete_session(
+            db,
+            current_user.id,
+            session_id,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        logger.exception(
+            "Interview session deletion failed: "
+            "session_id=%s user_id=%s",
+            session_id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to delete interview session",
+        ) from error
+
+    return {
+        "message": "Interview session deleted permanently",
+    }
+    
 @router.get('/{session_id}', response_model=SessionDetailResponse)
 def get_session_detail(
     session_id : int,

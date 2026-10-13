@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.ai.orchestrator import AIOrchestrator
@@ -57,6 +58,25 @@ class InterviewService:
             raise ValueError("Interview session not found")
 
         return session
+    
+    def delete_session(
+        self,
+        db: Session,
+        user_id: int,
+        session_id: int,
+    ) -> None:
+        session = self._get_owned_session(
+            db,
+            user_id,
+            session_id,
+        )
+
+        try:
+            self.session_repo.delete(db, session)
+            self.session_repo.commit(db)
+        except SQLAlchemyError:
+            self.session_repo.rollback(db)
+            raise
 
     def start_session(
         self,

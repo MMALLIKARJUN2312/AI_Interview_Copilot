@@ -1,3 +1,14 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.interview import (
+    InterviewAnswer,
+    InterviewFeedback,
+    InterviewQuestion,
+    InterviewSession,
+    LearningRoadmap,
+)
+
 def test_start_interview_generates_role_aligned_questions(client, auth_headers, uploaded_resume):
     resume_id = uploaded_resume["resume_id"]
 
@@ -304,3 +315,137 @@ def test_list_sessions_rejects_invalid_pagination(
         )
 
         assert response.status_code == 422
+
+def test_delete_interview_removes_related_records(
+    client,
+    auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+
+    start_body = start_response.json()
+    session_id = start_body["session"]["id"]
+    question_id = start_body["first_question"]["id"]
+
+    answer_response = client.post(
+        f"/interview/{session_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": question_id,
+            "answer_text": "A detailed technical answer.",
+        },
+    )
+
+    assert answer_response.status_code == 200
+
+    complete_response = client.post(
+        f"/interview/{session_id}/complete",
+        headers=auth_headers,
+    )
+
+    assert complete_response.status_code == 200
+
+    with Session(db_engine) as db:
+        answer_id = db.scalar(
+            select(InterviewAnswer.id).where(
+                InterviewAnswer.question_id == question_id
+            )
+        )
+        feedback_id = db.scalar(
+            select(InterviewFeedback.id).where(
+                InterviewFeedback.session_id == session_id
+            )
+        )
+        roadmap_id = db.scalar(
+            select(LearningRoadmap.id).where(
+                LearningRoadmap.session_id == session_id
+            )
+        )
+
+    delete_response = client.delete(
+        f"/interview/{session_id}",
+        headers=auth_headers,
+    )
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {
+        "message": "Interview session deleted permanently",
+    }
+
+    with Session(db_engine) as db:
+        assert db.get(InterviewSession, session_id) is None
+        assert db.get(InterviewQuestion, question_id) is None
+        assert db.get(InterviewAnswer, answer_id) is None
+        assert db.get(InterviewFeedback, feedback_id) is None
+        assert db.get(LearningRoadmap, roadmap_id) is None
+
+    detail_response = client.get(
+        f"/interview/{session_id}",
+        headers=auth_headers,
+    )
+
+    assert detail_response.status_code == 404
+
+
+def test_other_user_cannot_delete_interview(
+    client,
+    auth_headers,
+    other_auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+    session_id = start_response.json()["session"]["id"]
+
+    delete_response = client.delete(
+        f"/interview/{session_id}",
+        headers=other_auth_headers,
+    )
+
+    assert delete_response.status_code == 404
+    assert delete_response.json()["detail"] == (
+        "Interview session not found"
+    )
+
+    owner_response = client.get(
+        f"/interview/{session_id}",
+        headers=auth_headers,
+    )
+
+    assert owner_response.status_code == 200
+
+
+def test_delete_interview_requires_authentication(
+    client,
+):
+    response = client.delete("/interview/999999")
+
+    assert response.status_code == 401
