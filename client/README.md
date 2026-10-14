@@ -20,6 +20,7 @@ This application is built with Next.js, React, TypeScript, Tailwind CSS, Radix U
 - Light and dark themes
 - Responsive interface
 - Production-ready standalone Next.js build
+- Permanent deletion of interview sessions and their associated results
 
 ## Technology stack
 
@@ -145,7 +146,7 @@ npm run build
 | `/dashboard` | Protected | View resumes and interview sessions |
 | `/resume/new` | Protected | Upload and analyze a resume |
 | `/resume/[resumeId]` | Protected | View resume analysis and start an interview |
-| `/interview/[sessionId]` | Protected | Complete an interview and review results |
+| `/interview/[sessionId]` | Protected | Complete, review, or permanently delete an interview session |
 
 After successful registration, users are redirected to `/login`. Registration does not automatically authenticate the new account.
 
@@ -219,6 +220,7 @@ The API client supports:
 - Running code
 - Completing interviews
 - Interview-session history and details
+- Permanent interview-session deletion
 
 The API base URL is resolved using:
 

@@ -1,6 +1,15 @@
 "use client";
 
-import { Code2, Laptop2, MessagesSquare, PartyPopper, PlayCircle, Sparkle } from "lucide-react";
+import {
+  Code2,
+  Laptop2,
+  MessagesSquare,
+  PartyPopper,
+  PlayCircle,
+  Sparkle,
+  Trash2,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { CodeEditor, STARTER_TEMPLATES } from "@/components/code-editor";
@@ -63,6 +72,7 @@ function isCodingRound(question : QuestionResponse | null) {
 
 function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [phase, setPhase] = useState<Phase>("loading");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionSummary | null>(null);
   const [currentQuestion, setCurrentQuestion] =
@@ -217,6 +227,33 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
     }
   }
 
+    async function handleDeleteInterview() {
+    const confirmed = window.confirm(
+      "Permanently delete this interview session? " +
+        "Its answers, feedback, and learning roadmap cannot be recovered.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError(null);
+    setIsDeleting(true);
+
+    try {
+      await api.deleteInterview(sessionId);
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not delete this interview. Please try again.",
+      );
+      setIsDeleting(false);
+    }
+  }
+
   if (phase === "loading") {
     return (
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 text-sm text-muted-foreground">
@@ -236,18 +273,35 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   if (phase === "completed") {
     return (
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-        <div className="animate-fade-in-up mb-6 flex items-center gap-2">
-          <PartyPopper className="size-6 text-[var(--brand-via)]" />
-          <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              Interview complete
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {session?.target_role}
-            </p>
-          </div>
-        </div>
+        <div className="animate-fade-in-up mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div className="flex items-center gap-2">
+    <PartyPopper className="size-6 text-[var(--brand-via)]" />
+    <div>
+      <h1 className="font-heading text-2xl font-semibold tracking-tight">
+        Interview complete
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        {session?.target_role}
+      </p>
+    </div>
+  </div>
 
+  <Button
+    type="button"
+    variant="destructive"
+    size="sm"
+    onClick={handleDeleteInterview}
+    disabled={isDeleting}
+  >
+    <Trash2 className="size-4" />
+    {isDeleting ? "Deleting…" : "Delete session"}
+  </Button>
+</div>
+{error && (
+  <p className="mb-4 text-sm text-destructive">
+    {error}
+  </p>
+)}
         {feedback && (
           <Card className="animate-fade-in-up mb-6">
             <CardHeader>
@@ -336,9 +390,22 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
             {session?.target_role}
           </p>
         </div>
-        <Badge variant="secondary">
-          {answeredCount}/{totalQuestions} answered
-        </Badge>
+        <div className="flex items-center gap-2">
+  <Badge variant="secondary">
+    {answeredCount}/{totalQuestions} answered
+  </Badge>
+
+  <Button
+    type="button"
+    variant="destructive"
+    size="sm"
+    onClick={handleDeleteInterview}
+    disabled={isDeleting || isSubmitting || isRunning}
+  >
+    <Trash2 className="size-4" />
+    {isDeleting ? "Deleting…" : "Delete"}
+  </Button>
+</div>
       </div>
 
       <div className="animate-fade-in-up mb-6">

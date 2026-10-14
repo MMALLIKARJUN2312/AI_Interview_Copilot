@@ -550,9 +550,17 @@ listResumes(
   );
 },
 
-  getSessionDetail(sessionId: number) {
+    getSessionDetail(sessionId: number) {
     return request<SessionDetailResponse>(
       `/interview/${sessionId}`,
     );
+  },
+
+  deleteInterview(sessionId: number) {
+    return request<{
+      message: string;
+    }>(`/interview/${sessionId}`, {
+      method: "DELETE",
+    });
   },
 };
