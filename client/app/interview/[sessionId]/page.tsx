@@ -71,6 +71,8 @@ function isCodingRound(question : QuestionResponse | null) {
 }
 
 function InterviewFlow({ sessionId }: { sessionId: number }) {
+  const router = useRouter();
+
   const [phase, setPhase] = useState<Phase>("loading");
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
