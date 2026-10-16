@@ -519,7 +519,86 @@ async function handleLoadMoreSessions(): Promise<void> {
     <UserRound className="size-4 text-muted-foreground" />
     Profile
   </h2>
-  </section>
+
+  <Card>
+    <CardHeader>
+      <CardTitle className="text-base">
+        Display name
+      </CardTitle>
+      <CardDescription>
+        This name is displayed throughout your account.
+        Updating it does not change your login email.
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent>
+      <form
+        className="flex max-w-md flex-col gap-4"
+        onSubmit={handleUpdateProfile}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="profile-full-name">
+            Full name
+          </Label>
+
+          <Input
+            id="profile-full-name"
+            name="fullName"
+            type="text"
+            autoComplete="name"
+            minLength={2}
+            maxLength={100}
+            required
+            value={profileFullName}
+            onChange={(event) => {
+              setProfileFullName(event.target.value);
+              setProfileError(null);
+              setProfileSuccess(null);
+            }}
+          />
+        </div>
+
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Login email: {user?.email}
+          </p>
+        </div>
+
+        {profileError && (
+          <p
+            role="alert"
+            className="text-sm text-destructive"
+          >
+            {profileError}
+          </p>
+        )}
+
+        {profileSuccess && (
+          <p
+            role="status"
+            className="text-sm text-emerald-600 dark:text-emerald-400"
+          >
+            {profileSuccess}
+          </p>
+        )}
+
+        <Button
+          type="submit"
+          className="w-fit"
+          disabled={
+            isUpdatingProfile ||
+            profileFullName.trim().length < 2 ||
+            profileFullName.trim() === user?.full_name
+          }
+        >
+          {isUpdatingProfile
+            ? "Saving profile…"
+            : "Save profile"}
+        </Button>
+      </form>
+    </CardContent>
+  </Card>
+</section>
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
           <ShieldCheck className="size-4 text-muted-foreground" />
