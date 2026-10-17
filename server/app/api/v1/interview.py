@@ -16,6 +16,7 @@ from app.core.rate_limit import (
 )
 from app.db.session import get_db
 from app.models.user import User
+from app.models.interview import InterviewSessionStatus
 from app.repositories.interview_repository import InterviewSessionRepository
 from app.repositories.interview_question_repository import InterviewQuestionRepository
 from app.repositories.interview_feedback_repository import InterviewFeedbackRepository
@@ -207,25 +208,25 @@ def list_sessions(
         default=0,
         ge=0,
     ),
-    current_user: User = Depends(
-        get_current_user
+    status: InterviewSessionStatus | None = Query(
+        default=None,
     ),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    sessions = (
-        session_repository.get_user_sessions_page(
-            db,
-            current_user.id,
-            limit=limit,
-            offset=offset,
-        )
+    sessions = session_repository.get_user_sessions_page(
+        db,
+        current_user.id,
+        limit=limit,
+        offset=offset,
+        session_status=status,
     )
 
     return [
         SessionSummary.model_validate(session)
         for session in sessions
     ]
-
+    
 @router.delete("/{session_id}")
 @limiter.limit(
     "10/hour",

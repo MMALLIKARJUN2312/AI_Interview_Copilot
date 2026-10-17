@@ -21,8 +21,25 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
         )
         return list(db.execute(stmt).scalars().all())
     
-    def get_user_sessions_page(self, db: Session, user_id: int, limit: int, offset: int) -> list[InterviewSession]:
-        statement = (select(InterviewSession).where(InterviewSession.user_id == user_id)
+    def get_user_sessions_page(
+        self,
+        db: Session,
+        user_id: int,
+        limit: int,
+        offset: int,
+        session_status: InterviewSessionStatus | None = None,
+    ) -> list[InterviewSession]:
+        statement = select(InterviewSession).where(
+            InterviewSession.user_id == user_id
+        )
+
+        if session_status is not None:
+            statement = statement.where(
+                InterviewSession.status == session_status
+            )
+
+        statement = (
+            statement
             .order_by(
                 InterviewSession.created_at.desc(),
                 InterviewSession.id.desc(),

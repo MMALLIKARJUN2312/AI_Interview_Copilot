@@ -449,3 +449,101 @@ def test_delete_interview_requires_authentication(
     response = client.delete("/interview/999999")
 
     assert response.status_code == 401
+    
+def test_list_sessions_filters_by_status(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    resume_id = uploaded_resume["resume_id"]
+
+    in_progress_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": resume_id,
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert in_progress_response.status_code == 200
+    in_progress_id = (
+        in_progress_response.json()["session"]["id"]
+    )
+
+    completed_start = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": resume_id,
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert completed_start.status_code == 200
+
+    completed_body = completed_start.json()
+    completed_id = completed_body["session"]["id"]
+    question_id = completed_body["first_question"]["id"]
+
+    answer_response = client.post(
+        f"/interview/{completed_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": question_id,
+            "answer_text": "A detailed technical answer.",
+        },
+    )
+
+    assert answer_response.status_code == 200
+
+    complete_response = client.post(
+        f"/interview/{completed_id}/complete",
+        headers=auth_headers,
+    )
+
+    assert complete_response.status_code == 200
+
+    completed_sessions = client.get(
+        "/interview/sessions?status=completed",
+        headers=auth_headers,
+    )
+    in_progress_sessions = client.get(
+        "/interview/sessions?status=in_progress",
+        headers=auth_headers,
+    )
+
+    assert completed_sessions.status_code == 200
+    assert in_progress_sessions.status_code == 200
+
+    assert [
+        session["id"]
+        for session in completed_sessions.json()
+    ] == [completed_id]
+
+    assert [
+        session["id"]
+        for session in in_progress_sessions.json()
+    ] == [in_progress_id]
+
+
+def test_list_sessions_rejects_invalid_status(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        "/interview/sessions?status=unknown",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
