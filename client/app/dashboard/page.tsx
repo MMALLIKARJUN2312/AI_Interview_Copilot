@@ -34,10 +34,14 @@ import { Label } from "@/components/ui/label";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type {
+  InterviewSessionStatus,
   ResumeSummary,
   SessionSummary,
 } from "@/lib/types";
 const DASHBOARD_PAGE_SIZE = 10;
+type SessionStatusFilter =
+  | "all"
+  | InterviewSessionStatus;
 
 function appendUniqueById<T extends { id: number }>(
   currentItems: T[],
@@ -93,6 +97,8 @@ function DashboardContent() {
 
   const [resumes, setResumes] =
     useState<ResumeSummary[] | null>(null);
+  const [sessionStatusFilter, setSessionStatusFilter] =
+    useState<SessionStatusFilter>("all");
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
     const [hasMoreResumes, setHasMoreResumes] = useState(false);
@@ -126,57 +132,80 @@ const [deleteError, setDeleteError] =
 const [isDeletingAccount, setIsDeletingAccount] =
   useState(false);
 
-  
-
 useEffect(() => {
   let cancelled = false;
 
-  async function loadDashboard(): Promise<void> {
-    setError(null);
-
+  async function loadResumes(): Promise<void> {
     try {
-      const [resumeList, sessionList] = await Promise.all([
-        api.listResumes({
-          limit: DASHBOARD_PAGE_SIZE,
-          offset: 0,
-        }),
-        api.listSessions({
-          limit: DASHBOARD_PAGE_SIZE,
-          offset: 0,
-        }),
-      ]);
+      const resumeList = await api.listResumes({
+        limit: DASHBOARD_PAGE_SIZE,
+        offset: 0,
+      });
 
       if (cancelled) {
         return;
       }
 
       setResumes(resumeList);
-      setSessions(sessionList);
-
       setHasMoreResumes(
         resumeList.length === DASHBOARD_PAGE_SIZE,
       );
-      setHasMoreSessions(
-        sessionList.length === DASHBOARD_PAGE_SIZE,
-      );
     } catch {
-      if (cancelled) {
-        return;
+      if (!cancelled) {
+        setResumes([]);
+        setError("Unable to load your resumes right now.");
       }
-
-      // Prevent the dashboard from remaining in the loading state.
-      setResumes([]);
-      setSessions([]);
-      setError("Unable to load your dashboard right now.");
     }
   }
 
-  void loadDashboard();
+  void loadResumes();
 
   return () => {
     cancelled = true;
   };
 }, []);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadSessions(): Promise<void> {
+    setSessions(null);
+    setError(null);
+
+    try {
+      const sessionList = await api.listSessions({
+        limit: DASHBOARD_PAGE_SIZE,
+        offset: 0,
+        ...(sessionStatusFilter === "all"
+          ? {}
+          : { status: sessionStatusFilter }),
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      setSessions(sessionList);
+      setHasMoreSessions(
+        sessionList.length === DASHBOARD_PAGE_SIZE,
+      );
+    } catch {
+      if (!cancelled) {
+        setSessions([]);
+        setHasMoreSessions(false);
+        setError(
+          "Unable to load your interview sessions right now.",
+        );
+      }
+    }
+  }
+
+  void loadSessions();
+
+  return () => {
+    cancelled = true;
+  };
+}, [sessionStatusFilter]);
 
 async function handleLoadMoreResumes(): Promise<void> {
   if (
@@ -230,9 +259,12 @@ async function handleLoadMoreSessions(): Promise<void> {
 
   try {
     const nextPage = await api.listSessions({
-      limit: DASHBOARD_PAGE_SIZE,
-      offset: sessions.length,
-    });
+  limit: DASHBOARD_PAGE_SIZE,
+  offset: sessions.length,
+  ...(sessionStatusFilter === "all"
+    ? {}
+    : { status: sessionStatusFilter }),
+});
 
     setSessions((currentSessions) =>
       currentSessions === null
@@ -451,17 +483,48 @@ async function handleLoadMoreSessions(): Promise<void> {
       </section>
 
       <section className="mb-10">
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
-          <MessagesSquare className="size-4 text-muted-foreground" />
-          Interview sessions
-        </h2>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <h2 className="flex items-center gap-2 text-lg font-medium">
+    <MessagesSquare className="size-4 text-muted-foreground" />
+    Interview sessions
+  </h2>
+
+  <div>
+    <Label
+      htmlFor="session-status-filter"
+      className="sr-only"
+    >
+      Filter interview sessions by status
+    </Label>
+
+    <select
+      id="session-status-filter"
+      value={sessionStatusFilter}
+      onChange={(event) =>
+        setSessionStatusFilter(
+          event.target.value as SessionStatusFilter,
+        )
+      }
+      className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <option value="all">All interviews</option>
+      <option value="in_progress">In progress</option>
+      <option value="completed">Completed</option>
+      <option value="abandoned">Abandoned</option>
+    </select>
+  </div>
+</div>
         {sessions === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : sessions.length === 0 ? (
           <EmptyState
-            icon={MessagesSquare}
-            message="No mock interviews yet. Start one from a resume's page."
-          />
+  icon={MessagesSquare}
+  message={
+    sessionStatusFilter === "all"
+      ? "No mock interviews yet. Start one from a resume's page."
+      : `No ${sessionStatusFilter.replace("_", " ")} interviews found.`
+  }
+/>
         ) : (
 <>
   <div className="grid gap-3 sm:grid-cols-2">

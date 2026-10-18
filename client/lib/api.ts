@@ -1,5 +1,6 @@
 import type {
   CompleteInterviewResponse,
+  InterviewSessionStatus,
   ResumeAnalysisResponse,
   ResumeSummary,
   RoundConfig,
@@ -34,6 +35,11 @@ interface PaginationOptions {
   limit?: number;
   offset?: number;
 }
+
+interface SessionListOptions extends PaginationOptions {
+  status?: InterviewSessionStatus;
+}
+
 interface ApiErrorResponse {
   detail?: string | ApiValidationError[];
   message?: string;
@@ -540,15 +546,21 @@ listResumes(
     );
   },
 
-  listSessions(
-  options: PaginationOptions = {},
-) {
-  const query = createPaginationQuery(options);
+    listSessions(
+    options: SessionListOptions = {},
+  ) {
+    const params = new URLSearchParams(
+      createPaginationQuery(options),
+    );
 
-  return request<SessionSummary[]>(
-    `/interview/sessions?${query}`,
-  );
-},
+    if (options.status) {
+      params.set("status", options.status);
+    }
+
+    return request<SessionSummary[]>(
+      `/interview/sessions?${params.toString()}`,
+    );
+  },
 
     getSessionDetail(sessionId: number) {
     return request<SessionDetailResponse>(
