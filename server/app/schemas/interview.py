@@ -169,3 +169,9 @@ class SessionDetailResponse(BaseModel):
     questions : list[QuestionWithAnswerResponse]
     feedback : FeedbackResponse | None
     roadmap : RoadmapResponse | None
+    
+class InterviewStatisticsResponse(BaseModel):
+    total_sessions: int
+    in_progress_sessions: int
+    completed_sessions: int
+    average_score: float | None

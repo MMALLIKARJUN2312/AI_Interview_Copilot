@@ -33,6 +33,7 @@ from app.schemas.interview import (
     QuestionWithAnswerResponse,
     AnswerResponse,
     FeedbackResponse,
+    InterviewStatisticsResponse,
     RoadmapResponse,
     RunCodeRequest,
     RunCodeResponse,
@@ -226,6 +227,21 @@ def list_sessions(
         SessionSummary.model_validate(session)
         for session in sessions
     ]
+    
+@router.get(
+    "/statistics",
+    response_model=InterviewStatisticsResponse,
+)
+def get_interview_statistics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    statistics = session_repository.get_user_statistics(
+        db,
+        current_user.id,
+    )
+
+    return InterviewStatisticsResponse(**statistics)    
     
 @router.delete("/{session_id}")
 @limiter.limit(

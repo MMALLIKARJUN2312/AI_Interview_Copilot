@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.interview import InterviewSession, InterviewSessionStatus
@@ -51,6 +51,70 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
         return list(
             db.execute(statement).scalars().all()
         )
+        
+    def get_user_statistics(
+        self,
+        db: Session,
+        user_id: int,
+    ) -> dict[str, int | float | None]:
+        statement = select(
+            func.count(InterviewSession.id).label(
+                "total_sessions"
+            ),
+            func.sum(
+                case(
+                    (
+                        InterviewSession.status
+                        == InterviewSessionStatus.IN_PROGRESS,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("in_progress_sessions"),
+            func.sum(
+                case(
+                    (
+                        InterviewSession.status
+                        == InterviewSessionStatus.COMPLETED,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("completed_sessions"),
+            func.avg(
+                case(
+                    (
+                        InterviewSession.status
+                        == InterviewSessionStatus.COMPLETED,
+                        InterviewSession.overall_score,
+                    ),
+                    else_=None,
+                )
+            ).label("average_score"),
+        ).where(
+            InterviewSession.user_id == user_id
+        )
+
+        result = db.execute(statement).one()
+
+        average_score = (
+            round(float(result.average_score), 1)
+            if result.average_score is not None
+            else None
+        )
+
+        return {
+            "total_sessions": int(
+                result.total_sessions or 0
+            ),
+            "in_progress_sessions": int(
+                result.in_progress_sessions or 0
+            ),
+            "completed_sessions": int(
+                result.completed_sessions or 0
+            ),
+            "average_score": average_score,
+        }
 
     def get_resume_sessions(self, db : Session, resume_id : int) -> list[InterviewSession]:
         stmt = (

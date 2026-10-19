@@ -547,3 +547,103 @@ def test_list_sessions_rejects_invalid_status(
     )
 
     assert response.status_code == 422
+    
+def test_interview_statistics_are_empty_for_new_user(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        "/interview/statistics",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total_sessions": 0,
+        "in_progress_sessions": 0,
+        "completed_sessions": 0,
+        "average_score": None,
+    }
+
+
+def test_interview_statistics_summarize_user_sessions(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    resume_id = uploaded_resume["resume_id"]
+
+    in_progress_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": resume_id,
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert in_progress_response.status_code == 200
+
+    completed_start = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": resume_id,
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert completed_start.status_code == 200
+
+    completed_body = completed_start.json()
+    session_id = completed_body["session"]["id"]
+    question_id = completed_body["first_question"]["id"]
+
+    answer_response = client.post(
+        f"/interview/{session_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": question_id,
+            "answer_text": "A detailed technical answer.",
+        },
+    )
+
+    assert answer_response.status_code == 200
+
+    complete_response = client.post(
+        f"/interview/{session_id}/complete",
+        headers=auth_headers,
+    )
+
+    assert complete_response.status_code == 200
+
+    statistics_response = client.get(
+        "/interview/statistics",
+        headers=auth_headers,
+    )
+
+    assert statistics_response.status_code == 200
+    assert statistics_response.json() == {
+        "total_sessions": 2,
+        "in_progress_sessions": 1,
+        "completed_sessions": 1,
+        "average_score": 72.0,
+    }
+
+
+def test_interview_statistics_require_authentication(
+    client,
+):
+    response = client.get("/interview/statistics")
+
+    assert response.status_code == 401
