@@ -46,6 +46,13 @@ export interface SessionSummary {
   completed_at: string | null;
 }
 
+export interface InterviewStatistics {
+  total_sessions: number;
+  in_progress_sessions: number;
+  completed_sessions: number;
+  average_score: number | null;
+}
+
 export type RoundType = "dsa_coding" | "machine_coding" | "general";
 
 export type CodeLanguage = "python" | "javascript" | "java" | "cpp";

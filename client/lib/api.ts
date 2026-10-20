@@ -1,6 +1,7 @@
 import type {
   CompleteInterviewResponse,
   InterviewSessionStatus,
+  InterviewStatistics,
   ResumeAnalysisResponse,
   ResumeSummary,
   RoundConfig,
@@ -543,6 +544,12 @@ listResumes(
       {
         method: "POST",
       },
+    );
+  },
+
+    getInterviewStatistics() {
+    return request<InterviewStatistics>(
+      "/interview/statistics",
     );
   },
 

@@ -35,6 +35,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type {
   InterviewSessionStatus,
+  InterviewStatistics,
   ResumeSummary,
   SessionSummary,
 } from "@/lib/types";
@@ -101,6 +102,10 @@ function DashboardContent() {
     useState<SessionStatusFilter>("all");
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
+    const [statistics, setStatistics] =
+  useState<InterviewStatistics | null>(null);
+const [isStatisticsLoading, setIsStatisticsLoading] =
+  useState(true);
     const [hasMoreResumes, setHasMoreResumes] = useState(false);
 const [hasMoreSessions, setHasMoreSessions] = useState(false);
 
@@ -159,6 +164,42 @@ useEffect(() => {
   }
 
   void loadResumes();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadStatistics(): Promise<void> {
+    setIsStatisticsLoading(true);
+
+    try {
+      const result =
+        await api.getInterviewStatistics();
+
+      if (!cancelled) {
+        setStatistics(result);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setStatistics(null);
+        setError(
+          error instanceof ApiError
+            ? error.message
+            : "Unable to load your progress summary.",
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setIsStatisticsLoading(false);
+      }
+    }
+  }
+
+  void loadStatistics();
 
   return () => {
     cancelled = true;
@@ -420,6 +461,72 @@ async function handleLoadMoreSessions(): Promise<void> {
           </Link>
         </Button>
       </div>
+
+      <section
+  aria-labelledby="progress-summary-heading"
+  className="mb-8"
+>
+  <h2
+    id="progress-summary-heading"
+    className="sr-only"
+  >
+    Interview progress summary
+  </h2>
+
+  {isStatisticsLoading ? (
+    <p className="text-sm text-muted-foreground">
+      Loading progress summary…
+    </p>
+  ) : statistics ? (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Total interviews
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {statistics.total_sessions}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            In progress
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {statistics.in_progress_sessions}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Completed
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {statistics.completed_sessions}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Average score
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {statistics.average_score === null
+              ? "—"
+              : `${statistics.average_score.toFixed(1)}/100`}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  ) : null}
+</section>
 
       {error && <p className="mb-6 text-sm text-destructive">{error}</p>}
 
