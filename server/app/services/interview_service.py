@@ -33,6 +33,9 @@ def _normalize(value : str, valid_values : set[str], default : str) -> str:
     normalized = (value or "").strip().lower().replace(" ", "_")
     return normalized if normalized in valid_values else default
 
+class InterviewSessionNotFoundError(ValueError):
+    """Raised when a session is missing or belongs to another user."""
+
 class InterviewService:
     """Orchestrates the full lifecycle of a role-aligned mock interview session:
     generating a multi-round question set (DSA coding, machine coding, and
@@ -55,7 +58,9 @@ class InterviewService:
         session = self.session_repo.get_by_id(db, session_id)
 
         if session is None or session.user_id != user_id:
-            raise ValueError("Interview session not found")
+            raise InterviewSessionNotFoundError(
+                "Interview session not found"
+            )
 
         return session
     
@@ -77,6 +82,42 @@ class InterviewService:
         except SQLAlchemyError:
             self.session_repo.rollback(db)
             raise
+
+        def abandon_session(
+            self,
+            db: Session,
+            user_id: int,
+            session_id: int,
+        ) -> InterviewSession:
+            session = self._get_owned_session(
+                db,
+                user_id,
+                session_id,
+            )
+
+            if (
+                session.status
+                == InterviewSessionStatus.ABANDONED
+            ):
+                return session
+
+            if (
+                session.status
+                != InterviewSessionStatus.IN_PROGRESS
+            ):
+                raise ValueError(
+                    "Only an in-progress interview can be abandoned"
+                )
+
+            try:
+                self.session_repo.mark_abandoned(session)
+                self.session_repo.commit(db)
+                self.session_repo.refresh(db, session)
+            except SQLAlchemyError:
+                self.session_repo.rollback(db)
+                raise
+
+            return session
 
     def start_session(
         self,
@@ -367,6 +408,11 @@ class InterviewService:
 
         if session.status == InterviewSessionStatus.COMPLETED:
             return session
+
+        if (session.status == InterviewSessionStatus.ABANDONED):
+            raise ValueError(
+                "Abandoned interview sessions cannot be completed"
+            )
 
         questions = self.question_repo.get_by_session(db, session.id)
         answered = [question for question in questions if question.answer is not None]

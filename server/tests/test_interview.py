@@ -647,3 +647,198 @@ def test_interview_statistics_require_authentication(
     response = client.get("/interview/statistics")
 
     assert response.status_code == 401
+    
+def test_abandon_interview_preserves_completed_answers(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 2,
+                }
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+
+    start_body = start_response.json()
+    session_id = start_body["session"]["id"]
+
+    answer_response = client.post(
+        f"/interview/{session_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": start_body["first_question"]["id"],
+            "answer_text": "A detailed technical answer.",
+        },
+    )
+
+    assert answer_response.status_code == 200
+    next_question = answer_response.json()["next_question"]
+
+    abandon_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert abandon_response.status_code == 200
+    assert abandon_response.json()["status"] == "abandoned"
+    assert abandon_response.json()["current_index"] == 1
+
+    detail_response = client.get(
+        f"/interview/{session_id}",
+        headers=auth_headers,
+    )
+
+    assert detail_response.status_code == 200
+
+    detail_body = detail_response.json()
+    assert detail_body["session"]["status"] == "abandoned"
+    assert detail_body["questions"][0]["answer"] is not None
+    assert detail_body["questions"][1]["answer"] is None
+
+    further_answer = client.post(
+        f"/interview/{session_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": next_question["id"],
+            "answer_text": "This must not be accepted.",
+        },
+    )
+
+    assert further_answer.status_code == 400
+    assert further_answer.json()["detail"] == (
+        "This interview session is not in progress"
+    )
+
+    complete_response = client.post(
+        f"/interview/{session_id}/complete",
+        headers=auth_headers,
+    )
+
+    assert complete_response.status_code == 400
+    assert complete_response.json()["detail"] == (
+        "Abandoned interview sessions cannot be completed"
+    )
+
+
+def test_abandon_interview_is_idempotent(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    session_id = start_response.json()["session"]["id"]
+
+    first_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+    second_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert second_response.json()["status"] == "abandoned"
+
+
+def test_completed_interview_cannot_be_abandoned(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    body = start_response.json()
+    session_id = body["session"]["id"]
+
+    client.post(
+        f"/interview/{session_id}/answer",
+        headers=auth_headers,
+        json={
+            "question_id": body["first_question"]["id"],
+            "answer_text": "A detailed technical answer.",
+        },
+    )
+
+    complete_response = client.post(
+        f"/interview/{session_id}/complete",
+        headers=auth_headers,
+    )
+
+    assert complete_response.status_code == 200
+
+    abandon_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert abandon_response.status_code == 409
+    assert abandon_response.json()["detail"] == (
+        "Only an in-progress interview can be abandoned"
+    )
+
+
+def test_other_user_cannot_abandon_interview(
+    client,
+    auth_headers,
+    other_auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    session_id = start_response.json()["session"]["id"]
+
+    response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 404

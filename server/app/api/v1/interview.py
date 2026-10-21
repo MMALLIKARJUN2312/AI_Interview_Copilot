@@ -38,7 +38,10 @@ from app.schemas.interview import (
     RunCodeRequest,
     RunCodeResponse,
 )
-from app.services.interview_service import InterviewService
+from app.services.interview_service import (
+    InterviewService,
+    InterviewSessionNotFoundError,
+)
 
 router = APIRouter(
     prefix='/interview',
@@ -281,6 +284,51 @@ def delete_interview_session(
     return {
         "message": "Interview session deleted permanently",
     }
+    
+@router.post(
+    "/{session_id}/abandon",
+    response_model=SessionSummary,
+)
+@limiter.limit(
+    "20/hour",
+    key_func=account_or_ip_key,
+)
+def abandon_interview_session(
+    request: Request,
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        session = interview_service.abandon_session(
+            db,
+            current_user.id,
+            session_id,
+        )
+    except InterviewSessionNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        logger.exception(
+            "Interview abandonment failed: "
+            "session_id=%s user_id=%s",
+            session_id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to abandon interview session",
+        ) from error
+
+    return SessionSummary.model_validate(session)    
     
 @router.get('/{session_id}', response_model=SessionDetailResponse)
 def get_session_detail(
