@@ -83,7 +83,7 @@ class InterviewService:
             self.session_repo.rollback(db)
             raise
 
-        def abandon_session(
+    def abandon_session(
             self,
             db: Session,
             user_id: int,

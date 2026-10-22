@@ -641,9 +641,7 @@ def test_interview_statistics_summarize_user_sessions(
     }
 
 
-def test_interview_statistics_require_authentication(
-    client,
-):
+def test_interview_statistics_require_authentication(client):
     response = client.get("/interview/statistics")
 
     assert response.status_code == 401
