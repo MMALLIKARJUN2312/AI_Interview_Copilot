@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CircleStop,
   Code2,
   Laptop2,
   MessagesSquare,
@@ -45,7 +46,8 @@ type Phase =
   | "answering"
   | "reviewing_answer"
   | "ready_to_complete"
-  | "completed";
+  | "completed"
+  | "abandoned";
 
 const ROUND_META: Record<RoundType, { label: string; icon: typeof Code2 }> = {
   dsa_coding: { label: "DSA coding round", icon: Code2 },
@@ -75,6 +77,8 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAbandoning, setIsAbandoning] =
+  useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionSummary | null>(null);
   const [currentQuestion, setCurrentQuestion] =
@@ -116,6 +120,11 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         );
         const answered = sorted.filter((question) => question.answer);
         setAnsweredCount(answered.length);
+
+        if (detail.session.status === "abandoned") {
+          setPhase("abandoned");
+          return;
+        }
 
         if (detail.session.status === "completed") {
           setFeedback(detail.feedback);
@@ -229,6 +238,36 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
     }
   }
 
+  async function handleAbandonInterview() {
+  const confirmed = window.confirm(
+    "End this interview without completing it? " +
+      "Your submitted answers will be preserved.",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError(null);
+  setIsAbandoning(true);
+
+  try {
+    const updatedSession =
+      await api.abandonInterview(sessionId);
+
+    setSession(updatedSession);
+    setPhase("abandoned");
+  } catch (err) {
+    setError(
+      err instanceof ApiError
+        ? err.message
+        : "Could not end this interview. Please try again.",
+    );
+  } finally {
+    setIsAbandoning(false);
+  }
+}
+
     async function handleDeleteInterview() {
     const confirmed = window.confirm(
       "Permanently delete this interview session? " +
@@ -271,6 +310,57 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       </div>
     );
   }
+
+  if (phase === "abandoned") {
+  return (
+    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
+      <Card className="animate-fade-in-up">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CircleStop className="size-5 text-destructive" />
+            <CardTitle>Interview ended</CardTitle>
+          </div>
+
+          <CardDescription>
+            This interview was ended after{" "}
+            {answeredCount} of {totalQuestions} questions.
+            Your submitted answers have been preserved.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+          >
+            Return to dashboard
+          </Button>
+
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDeleteInterview}
+            disabled={isDeleting}
+          >
+            <Trash2 className="size-4" />
+            {isDeleting
+              ? "Deleting…"
+              : "Delete permanently"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-4 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
   if (phase === "completed") {
     return (
@@ -392,17 +482,38 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
             {session?.target_role}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
   <Badge variant="secondary">
     {answeredCount}/{totalQuestions} answered
   </Badge>
 
   <Button
     type="button"
+    variant="outline"
+    size="sm"
+    onClick={handleAbandonInterview}
+    disabled={
+      isAbandoning ||
+      isDeleting ||
+      isSubmitting ||
+      isRunning
+    }
+  >
+    <CircleStop className="size-4" />
+    {isAbandoning ? "Ending…" : "End interview"}
+  </Button>
+
+  <Button
+    type="button"
     variant="destructive"
     size="sm"
     onClick={handleDeleteInterview}
-    disabled={isDeleting || isSubmitting || isRunning}
+    disabled={
+      isDeleting ||
+      isAbandoning ||
+      isSubmitting ||
+      isRunning
+    }
   >
     <Trash2 className="size-4" />
     {isDeleting ? "Deleting…" : "Delete"}

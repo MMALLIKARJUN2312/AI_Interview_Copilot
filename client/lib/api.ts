@@ -547,6 +547,15 @@ listResumes(
     );
   },
 
+    abandonInterview(sessionId: number) {
+    return request<SessionSummary>(
+      `/interview/${sessionId}/abandon`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
     getInterviewStatistics() {
     return request<InterviewStatistics>(
       "/interview/statistics",
