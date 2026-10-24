@@ -8,6 +8,7 @@ from app.models.interview import (
     InterviewSession,
     LearningRoadmap,
 )
+import io
 
 def test_start_interview_generates_role_aligned_questions(client, auth_headers, uploaded_resume):
     resume_id = uploaded_resume["resume_id"]
@@ -840,3 +841,163 @@ def test_other_user_cannot_abandon_interview(
     )
 
     assert response.status_code == 404
+    
+def test_list_sessions_searches_target_role(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    backend_start = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert backend_start.status_code == 200
+
+    frontend_resume = client.post(
+        "/resume/analyze",
+        headers=auth_headers,
+        files={
+            "file": (
+                "frontend-resume.pdf",
+                io.BytesIO(b"%PDF-1.4 fake"),
+                "application/pdf",
+            )
+        },
+        data={
+            "target_role": "Frontend Engineer",
+            "job_description": "Build accessible web applications",
+        },
+    )
+
+    assert frontend_resume.status_code == 200
+
+    frontend_start = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": frontend_resume.json()["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert frontend_start.status_code == 200
+
+    response = client.get(
+        "/interview/sessions?search=frontend",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["target_role"] == (
+        "Frontend Engineer"
+    )
+
+
+def test_session_search_is_case_insensitive(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+
+    response = client.get(
+        "/interview/sessions?search=BACKEND",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["target_role"] == (
+        "Backend Engineer"
+    )
+
+
+def test_session_search_combines_with_status_filter(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+
+    session_id = start_response.json()["session"]["id"]
+
+    abandon_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert abandon_response.status_code == 200
+
+    matching_response = client.get(
+        "/interview/sessions"
+        "?status=abandoned&search=backend",
+        headers=auth_headers,
+    )
+    nonmatching_response = client.get(
+        "/interview/sessions"
+        "?status=completed&search=backend",
+        headers=auth_headers,
+    )
+
+    assert matching_response.status_code == 200
+    assert len(matching_response.json()) == 1
+    assert matching_response.json()[0]["id"] == session_id
+
+    assert nonmatching_response.status_code == 200
+    assert nonmatching_response.json() == []
+
+
+def test_session_search_rejects_excessive_length(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        f"/interview/sessions?search={'a' * 101}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422

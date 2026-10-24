@@ -215,6 +215,11 @@ def list_sessions(
     status: InterviewSessionStatus | None = Query(
         default=None,
     ),
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=100,
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -224,13 +229,14 @@ def list_sessions(
         limit=limit,
         offset=offset,
         session_status=status,
+        search_query=search,
     )
 
     return [
         SessionSummary.model_validate(session)
         for session in sessions
     ]
-    
+        
 @router.get(
     "/statistics",
     response_model=InterviewStatisticsResponse,

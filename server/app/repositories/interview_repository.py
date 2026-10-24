@@ -28,6 +28,7 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
         limit: int,
         offset: int,
         session_status: InterviewSessionStatus | None = None,
+        search_query: str | None = None,
     ) -> list[InterviewSession]:
         statement = select(InterviewSession).where(
             InterviewSession.user_id == user_id
@@ -37,6 +38,22 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
             statement = statement.where(
                 InterviewSession.status == session_status
             )
+
+        if search_query:
+            escaped_query = (
+                search_query.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+
+            if escaped_query:
+                statement = statement.where(
+                    InterviewSession.target_role.ilike(
+                        f"%{escaped_query}%",
+                        escape="\\",
+                    )
+                )
 
         statement = (
             statement
