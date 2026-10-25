@@ -39,6 +39,7 @@ interface PaginationOptions {
 
 interface SessionListOptions extends PaginationOptions {
   status?: InterviewSessionStatus;
+  search?: string;
 }
 
 interface ApiErrorResponse {
@@ -562,7 +563,7 @@ listResumes(
     );
   },
 
-    listSessions(
+      listSessions(
     options: SessionListOptions = {},
   ) {
     const params = new URLSearchParams(
@@ -571,6 +572,10 @@ listResumes(
 
     if (options.status) {
       params.set("status", options.status);
+    }
+
+    if (options.search?.trim()) {
+      params.set("search", options.search.trim());
     }
 
     return request<SessionSummary[]>(

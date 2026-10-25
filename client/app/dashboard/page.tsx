@@ -7,9 +7,11 @@ import {
   LogOut,
   MessagesSquare,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
-  UserRound
+  UserRound,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -100,18 +102,21 @@ function DashboardContent() {
     useState<ResumeSummary[] | null>(null);
   const [sessionStatusFilter, setSessionStatusFilter] =
     useState<SessionStatusFilter>("all");
+  const [sessionSearchInput, setSessionSearchInput] =
+  useState("");
+  const [sessionSearchQuery, setSessionSearchQuery] =
+  useState("");
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
-    const [statistics, setStatistics] =
+  const [statistics, setStatistics] =
   useState<InterviewStatistics | null>(null);
-const [isStatisticsLoading, setIsStatisticsLoading] =
+  const [isStatisticsLoading, setIsStatisticsLoading] =
   useState(true);
-    const [hasMoreResumes, setHasMoreResumes] = useState(false);
-const [hasMoreSessions, setHasMoreSessions] = useState(false);
-
-const [isLoadingMoreResumes, setIsLoadingMoreResumes] =
+  const [hasMoreResumes, setHasMoreResumes] = useState(false);
+  const [hasMoreSessions, setHasMoreSessions] = useState(false);
+  const [isLoadingMoreResumes, setIsLoadingMoreResumes] =
   useState(false);
-const [isLoadingMoreSessions, setIsLoadingMoreSessions] =
+  const [isLoadingMoreSessions, setIsLoadingMoreSessions] =
   useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSigningOutAll, setIsSigningOutAll] = useState(false);
@@ -122,19 +127,19 @@ const [isLoadingMoreSessions, setIsLoadingMoreSessions] =
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [profileFullName, setProfileFullName] =
   useState(user?.full_name ?? "");
-const [profileError, setProfileError] =
+  const [profileError, setProfileError] =
   useState<string | null>(null);
-const [profileSuccess, setProfileSuccess] =
+  const [profileSuccess, setProfileSuccess] =
   useState<string | null>(null);
-const [isUpdatingProfile, setIsUpdatingProfile] =
+  const [isUpdatingProfile, setIsUpdatingProfile] =
   useState(false);
   const [deletePassword, setDeletePassword] =
   useState("");
-const [deleteConfirmation, setDeleteConfirmation] =
+  const [deleteConfirmation, setDeleteConfirmation] =
   useState("");
-const [deleteError, setDeleteError] =
+  const [deleteError, setDeleteError] =
   useState<string | null>(null);
-const [isDeletingAccount, setIsDeletingAccount] =
+  const [isDeletingAccount, setIsDeletingAccount] =
   useState(false);
 
 useEffect(() => {
@@ -220,6 +225,9 @@ useEffect(() => {
         ...(sessionStatusFilter === "all"
           ? {}
           : { status: sessionStatusFilter }),
+        ...(sessionSearchQuery
+          ? { search: sessionSearchQuery }
+          : {}),
       });
 
       if (cancelled) {
@@ -246,7 +254,7 @@ useEffect(() => {
   return () => {
     cancelled = true;
   };
-}, [sessionStatusFilter]);
+}, [sessionStatusFilter, sessionSearchQuery]);
 
 async function handleLoadMoreResumes(): Promise<void> {
   if (
@@ -300,12 +308,15 @@ async function handleLoadMoreSessions(): Promise<void> {
 
   try {
     const nextPage = await api.listSessions({
-  limit: DASHBOARD_PAGE_SIZE,
-  offset: sessions.length,
-  ...(sessionStatusFilter === "all"
-    ? {}
-    : { status: sessionStatusFilter }),
-});
+      limit: DASHBOARD_PAGE_SIZE,
+      offset: sessions.length,
+      ...(sessionStatusFilter === "all"
+        ? {}
+        : { status: sessionStatusFilter }),
+      ...(sessionSearchQuery
+        ? { search: sessionSearchQuery }
+        : {}),
+    });
 
     setSessions((currentSessions) =>
       currentSessions === null
@@ -448,6 +459,18 @@ async function handleLoadMoreSessions(): Promise<void> {
   } finally {
     setIsDeletingAccount(false);
   }
+}
+
+function handleSessionSearch(
+  event: FormEvent<HTMLFormElement>,
+): void {
+  event.preventDefault();
+  setSessionSearchQuery(sessionSearchInput.trim());
+}
+
+function handleClearSessionSearch(): void {
+  setSessionSearchInput("");
+  setSessionSearchQuery("");
 }
 
   return (
@@ -620,6 +643,50 @@ async function handleLoadMoreSessions(): Promise<void> {
       <option value="abandoned">Abandoned</option>
     </select>
   </div>
+  <form
+  className="flex items-center gap-2"
+  onSubmit={handleSessionSearch}
+>
+  <Label
+    htmlFor="session-role-search"
+    className="sr-only"
+  >
+    Search interviews by target role
+  </Label>
+
+  <Input
+    id="session-role-search"
+    type="search"
+    maxLength={100}
+    placeholder="Search target role"
+    value={sessionSearchInput}
+    onChange={(event) =>
+      setSessionSearchInput(event.target.value)
+    }
+    className="w-full sm:w-56"
+  />
+
+  <Button
+    type="submit"
+    variant="outline"
+    size="sm"
+  >
+    <Search className="size-4" />
+    Search
+  </Button>
+
+  {sessionSearchQuery && (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={handleClearSessionSearch}
+      aria-label="Clear interview search"
+    >
+      <X className="size-4" />
+    </Button>
+  )}
+</form>
 </div>
         {sessions === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
