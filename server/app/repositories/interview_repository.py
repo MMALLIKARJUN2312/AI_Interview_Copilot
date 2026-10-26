@@ -29,6 +29,7 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
         offset: int,
         session_status: InterviewSessionStatus | None = None,
         search_query: str | None = None,
+        sort_order: str = "newest",
     ) -> list[InterviewSession]:
         statement = select(InterviewSession).where(
             InterviewSession.user_id == user_id
@@ -55,12 +56,33 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
                     )
                 )
 
-        statement = (
-            statement
-            .order_by(
+        if sort_order == "oldest":
+            ordering = (
+                InterviewSession.created_at.asc(),
+                InterviewSession.id.asc(),
+            )
+        elif sort_order == "highest_score":
+            ordering = (
+                case(
+                    (
+                        InterviewSession.overall_score.is_(None),
+                        1,
+                    ),
+                    else_=0,
+                ).asc(),
+                InterviewSession.overall_score.desc(),
                 InterviewSession.created_at.desc(),
                 InterviewSession.id.desc(),
             )
+        else:
+            ordering = (
+                InterviewSession.created_at.desc(),
+                InterviewSession.id.desc(),
+            )
+
+        statement = (
+            statement
+            .order_by(*ordering)
             .offset(offset)
             .limit(limit)
         )
@@ -68,7 +90,7 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
         return list(
             db.execute(statement).scalars().all()
         )
-        
+     
     def get_user_statistics(
         self,
         db: Session,

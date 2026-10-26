@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -220,6 +222,13 @@ def list_sessions(
         min_length=1,
         max_length=100,
     ),
+    sort: Literal[
+        "newest",
+        "oldest",
+        "highest_score",
+    ] = Query(
+        default="newest",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -230,6 +239,7 @@ def list_sessions(
         offset=offset,
         session_status=status,
         search_query=search,
+        sort_order=sort,
     )
 
     return [

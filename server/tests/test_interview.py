@@ -6,6 +6,7 @@ from app.models.interview import (
     InterviewFeedback,
     InterviewQuestion,
     InterviewSession,
+    InterviewSessionStatus,
     LearningRoadmap,
 )
 import io
@@ -997,6 +998,128 @@ def test_session_search_rejects_excessive_length(
 ):
     response = client.get(
         f"/interview/sessions?search={'a' * 101}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    
+def test_list_sessions_sorts_oldest_first(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    created_ids = []
+
+    for _ in range(3):
+        response = client.post(
+            "/interview/start",
+            headers=auth_headers,
+            json={
+                "resume_id": uploaded_resume["resume_id"],
+                "rounds": [
+                    {
+                        "round_type": "general",
+                        "num_questions": 1,
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        created_ids.append(
+            response.json()["session"]["id"]
+        )
+
+    response = client.get(
+        "/interview/sessions?sort=oldest",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert [
+        session["id"]
+        for session in response.json()
+    ] == created_ids
+
+
+def test_list_sessions_sorts_highest_score_first(
+    client,
+    auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    created_ids = []
+
+    for _ in range(3):
+        response = client.post(
+            "/interview/start",
+            headers=auth_headers,
+            json={
+                "resume_id": uploaded_resume["resume_id"],
+                "rounds": [
+                    {
+                        "round_type": "general",
+                        "num_questions": 1,
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        created_ids.append(
+            response.json()["session"]["id"]
+        )
+
+    with Session(db_engine) as db:
+        lower_score = db.get(
+            InterviewSession,
+            created_ids[0],
+        )
+        higher_score = db.get(
+            InterviewSession,
+            created_ids[1],
+        )
+
+        assert lower_score is not None
+        assert higher_score is not None
+
+        lower_score.status = (
+            InterviewSessionStatus.COMPLETED
+        )
+        lower_score.overall_score = 61
+
+        higher_score.status = (
+            InterviewSessionStatus.COMPLETED
+        )
+        higher_score.overall_score = 93
+
+        db.commit()
+
+    response = client.get(
+        "/interview/sessions?sort=highest_score",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    returned_ids = [
+        session["id"]
+        for session in response.json()
+    ]
+
+    assert returned_ids == [
+        created_ids[1],
+        created_ids[0],
+        created_ids[2],
+    ]
+
+
+def test_list_sessions_rejects_invalid_sort(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        "/interview/sessions?sort=unsupported",
         headers=auth_headers,
     )
 
