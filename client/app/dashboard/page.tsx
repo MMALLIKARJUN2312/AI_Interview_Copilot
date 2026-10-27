@@ -36,11 +36,13 @@ import { Label } from "@/components/ui/label";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type {
+  InterviewSessionSort,
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeSummary,
   SessionSummary,
 } from "@/lib/types";
+
 const DASHBOARD_PAGE_SIZE = 10;
 type SessionStatusFilter =
   | "all"
@@ -102,6 +104,8 @@ function DashboardContent() {
     useState<ResumeSummary[] | null>(null);
   const [sessionStatusFilter, setSessionStatusFilter] =
     useState<SessionStatusFilter>("all");
+  const [sessionSort, setSessionSort] =
+    useState<InterviewSessionSort>("newest");
   const [sessionSearchInput, setSessionSearchInput] =
   useState("");
   const [sessionSearchQuery, setSessionSearchQuery] =
@@ -222,6 +226,7 @@ useEffect(() => {
       const sessionList = await api.listSessions({
         limit: DASHBOARD_PAGE_SIZE,
         offset: 0,
+        sort: sessionSort,
         ...(sessionStatusFilter === "all"
           ? {}
           : { status: sessionStatusFilter }),
@@ -254,7 +259,7 @@ useEffect(() => {
   return () => {
     cancelled = true;
   };
-}, [sessionStatusFilter, sessionSearchQuery]);
+}, [sessionStatusFilter, sessionSearchQuery, sessionSort]);
 
 async function handleLoadMoreResumes(): Promise<void> {
   if (
@@ -310,6 +315,7 @@ async function handleLoadMoreSessions(): Promise<void> {
     const nextPage = await api.listSessions({
       limit: DASHBOARD_PAGE_SIZE,
       offset: sessions.length,
+      sort: sessionSort,
       ...(sessionStatusFilter === "all"
         ? {}
         : { status: sessionStatusFilter }),
@@ -618,32 +624,7 @@ function handleClearSessionSearch(): void {
     <MessagesSquare className="size-4 text-muted-foreground" />
     Interview sessions
   </h2>
-
-  <div>
-    <Label
-      htmlFor="session-status-filter"
-      className="sr-only"
-    >
-      Filter interview sessions by status
-    </Label>
-
-    <select
-      id="session-status-filter"
-      value={sessionStatusFilter}
-      onChange={(event) =>
-        setSessionStatusFilter(
-          event.target.value as SessionStatusFilter,
-        )
-      }
-      className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <option value="all">All interviews</option>
-      <option value="in_progress">In progress</option>
-      <option value="completed">Completed</option>
-      <option value="abandoned">Abandoned</option>
-    </select>
-  </div>
-  <form
+<form
   className="flex items-center gap-2"
   onSubmit={handleSessionSearch}
 >
@@ -687,16 +668,67 @@ function handleClearSessionSearch(): void {
     </Button>
   )}
 </form>
+  <div>
+    <Label
+      htmlFor="session-status-filter"
+      className="sr-only"
+    >
+      Filter interview sessions by status
+    </Label>
+
+    <select
+      id="session-status-filter"
+      value={sessionStatusFilter}
+      onChange={(event) =>
+        setSessionStatusFilter(
+          event.target.value as SessionStatusFilter,
+        )
+      }
+      className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <option value="all">All interviews</option>
+      <option value="in_progress">In progress</option>
+      <option value="completed">Completed</option>
+      <option value="abandoned">Abandoned</option>
+    </select>
+  </div>
+<div>
+  <Label
+    htmlFor="session-sort"
+    className="sr-only"
+  >
+    Sort interview sessions
+  </Label>
+
+  <select
+    id="session-sort"
+    value={sessionSort}
+    onChange={(event) =>
+      setSessionSort(
+        event.target.value as InterviewSessionSort,
+      )
+    }
+    className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  >
+    <option value="newest">Newest first</option>
+    <option value="oldest">Oldest first</option>
+    <option value="highest_score">
+      Highest score
+    </option>
+  </select>
+</div>
 </div>
         {sessions === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : sessions.length === 0 ? (
-          <EmptyState
+   <EmptyState
   icon={MessagesSquare}
   message={
-    sessionStatusFilter === "all"
-      ? "No mock interviews yet. Start one from a resume's page."
-      : `No ${sessionStatusFilter.replace("_", " ")} interviews found.`
+    sessionSearchQuery
+      ? `No interviews found for "${sessionSearchQuery}".`
+      : sessionStatusFilter === "all"
+        ? "No mock interviews yet. Start one from a resume's page."
+        : `No ${sessionStatusFilter.replace("_", " ")} interviews found.`
   }
 />
         ) : (

@@ -1,5 +1,6 @@
 import type {
   CompleteInterviewResponse,
+  InterviewSessionSort,
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeAnalysisResponse,
@@ -40,6 +41,7 @@ interface PaginationOptions {
 interface SessionListOptions extends PaginationOptions {
   status?: InterviewSessionStatus;
   search?: string;
+  sort?: InterviewSessionSort;
 }
 
 interface ApiErrorResponse {
@@ -576,6 +578,10 @@ listResumes(
 
     if (options.search?.trim()) {
       params.set("search", options.search.trim());
+    }
+
+    if (options.sort) {
+      params.set("sort", options.sort);
     }
 
     return request<SessionSummary[]>(

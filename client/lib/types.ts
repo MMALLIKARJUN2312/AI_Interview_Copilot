@@ -34,6 +34,12 @@ export type InterviewSessionStatus =
   | "completed"
   | "abandoned";
 
+  
+export type InterviewSessionSort =
+  | "newest"
+  | "oldest"
+  | "highest_score";
+
 export interface SessionSummary {
   id: number;
   resume_id: number;
