@@ -1124,3 +1124,157 @@ def test_list_sessions_rejects_invalid_sort(
     )
 
     assert response.status_code == 422
+    
+def test_retry_abandoned_interview_preserves_round_structure(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "dsa_coding",
+                    "num_questions": 1,
+                },
+                {
+                    "round_type": "machine_coding",
+                    "num_questions": 1,
+                },
+                {
+                    "round_type": "general",
+                    "num_questions": 2,
+                },
+            ],
+        },
+    )
+
+    assert start_response.status_code == 200
+
+    original_body = start_response.json()
+    original_id = original_body["session"]["id"]
+
+    abandon_response = client.post(
+        f"/interview/{original_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert abandon_response.status_code == 200
+
+    retry_response = client.post(
+        f"/interview/{original_id}/retry",
+        headers=auth_headers,
+    )
+
+    assert retry_response.status_code == 200
+
+    retry_body = retry_response.json()
+    new_id = retry_body["session"]["id"]
+
+    assert new_id != original_id
+    assert retry_body["session"]["resume_id"] == (
+        uploaded_resume["resume_id"]
+    )
+    assert retry_body["session"]["status"] == "in_progress"
+    assert retry_body["session"]["total_questions"] == 4
+    assert retry_body["first_question"]["round_type"] == (
+        "dsa_coding"
+    )
+
+    new_detail = client.get(
+        f"/interview/{new_id}",
+        headers=auth_headers,
+    )
+
+    assert new_detail.status_code == 200
+    assert [
+        question["round_type"]
+        for question in new_detail.json()["questions"]
+    ] == [
+        "dsa_coding",
+        "machine_coding",
+        "general",
+        "general",
+    ]
+
+    original_detail = client.get(
+        f"/interview/{original_id}",
+        headers=auth_headers,
+    )
+
+    assert original_detail.status_code == 200
+    assert original_detail.json()["session"]["status"] == (
+        "abandoned"
+    )
+
+
+def test_in_progress_interview_cannot_be_retried(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    session_id = start_response.json()["session"]["id"]
+
+    retry_response = client.post(
+        f"/interview/{session_id}/retry",
+        headers=auth_headers,
+    )
+
+    assert retry_response.status_code == 409
+    assert retry_response.json()["detail"] == (
+        "Only a completed or abandoned interview can be retried"
+    )
+
+
+def test_other_user_cannot_retry_interview(
+    client,
+    auth_headers,
+    other_auth_headers,
+    uploaded_resume,
+):
+    start_response = client.post(
+        "/interview/start",
+        headers=auth_headers,
+        json={
+            "resume_id": uploaded_resume["resume_id"],
+            "rounds": [
+                {
+                    "round_type": "general",
+                    "num_questions": 1,
+                }
+            ],
+        },
+    )
+
+    session_id = start_response.json()["session"]["id"]
+
+    abandon_response = client.post(
+        f"/interview/{session_id}/abandon",
+        headers=auth_headers,
+    )
+
+    assert abandon_response.status_code == 200
+
+    retry_response = client.post(
+        f"/interview/{session_id}/retry",
+        headers=other_auth_headers,
+    )
+
+    assert retry_response.status_code == 404

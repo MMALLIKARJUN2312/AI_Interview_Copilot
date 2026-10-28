@@ -199,6 +199,65 @@ def complete_interview(
         feedback=FeedbackResponse.model_validate(feedback),
         roadmap=RoadmapResponse(items=roadmap.items),
     )
+    
+@router.post(
+    "/{session_id}/retry",
+    response_model=StartInterviewResponse,
+)
+@limiter.limit(
+    settings.INTERVIEW_START_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
+@limiter.limit("10/hour")
+def retry_interview(
+    request: Request,
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        session = interview_service.retry_session(
+            db,
+            current_user.id,
+            session_id,
+        )
+    except InterviewSessionNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        logger.exception(
+            "Interview retry failed: "
+            "session_id=%s user_id=%s",
+            session_id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to create a new interview attempt",
+        ) from error
+
+    first_question = interview_service.get_next_question(
+        db,
+        current_user.id,
+        session.id,
+    )
+
+    return StartInterviewResponse(
+        session=SessionSummary.model_validate(session),
+        first_question=(
+            QuestionResponse.model_validate(first_question)
+            if first_question
+            else None
+        ),
+    )
 
 @router.get(
     "/sessions",

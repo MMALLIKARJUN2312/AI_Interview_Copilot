@@ -119,6 +119,66 @@ class InterviewService:
 
             return session
 
+    def retry_session(
+            self,
+            db: Session,
+            user_id: int,
+            session_id: int,
+        ) -> InterviewSession:
+            original_session = self._get_owned_session(
+                db,
+                user_id,
+                session_id,
+            )
+
+            if original_session.status not in {
+                InterviewSessionStatus.COMPLETED,
+                InterviewSessionStatus.ABANDONED,
+            }:
+                raise ValueError(
+                    "Only a completed or abandoned interview "
+                    "can be retried"
+                )
+
+            questions = self.question_repo.get_by_session(
+                db,
+                original_session.id,
+            )
+
+            if not questions:
+                raise ValueError(
+                    "This interview has no question structure to retry"
+                )
+
+            rounds: list[dict] = []
+
+            for question in questions:
+                round_type = (
+                    question.round_type.value
+                    if hasattr(question.round_type, "value")
+                    else question.round_type
+                )
+
+                if (
+                    rounds
+                    and rounds[-1]["round_type"] == round_type
+                ):
+                    rounds[-1]["num_questions"] += 1
+                else:
+                    rounds.append(
+                        {
+                            "round_type": round_type,
+                            "num_questions": 1,
+                        }
+                    )
+
+            return self.start_session(
+                db,
+                user_id,
+                original_session.resume_id,
+                rounds,
+            )
+
     def start_session(
         self,
         db : Session,
