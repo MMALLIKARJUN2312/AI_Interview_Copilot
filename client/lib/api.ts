@@ -559,6 +559,15 @@ listResumes(
     );
   },
 
+    retryInterview(sessionId: number) {
+    return request<StartInterviewResponse>(
+      `/interview/${sessionId}/retry`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
     getInterviewStatistics() {
     return request<InterviewStatistics>(
       "/interview/statistics",

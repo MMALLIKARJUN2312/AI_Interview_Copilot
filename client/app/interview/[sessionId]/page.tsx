@@ -7,6 +7,7 @@ import {
   MessagesSquare,
   PartyPopper,
   PlayCircle,
+  RotateCcw, 
   Sparkle,
   Trash2,
 } from "lucide-react";
@@ -77,6 +78,8 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRetrying, setIsRetrying] =
+  useState(false);
   const [isAbandoning, setIsAbandoning] =
   useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -268,6 +271,36 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   }
 }
 
+async function handleRetryInterview() {
+  const confirmed = window.confirm(
+    "Start a new attempt using the same resume " +
+      "and interview rounds? New questions will be generated.",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError(null);
+  setIsRetrying(true);
+
+  try {
+    const result = await api.retryInterview(sessionId);
+
+    router.replace(
+      `/interview/${result.session.id}`,
+    );
+    router.refresh();
+  } catch (err) {
+    setError(
+      err instanceof ApiError
+        ? err.message
+        : "Could not create a new interview attempt.",
+    );
+    setIsRetrying(false);
+  }
+}
+
     async function handleDeleteInterview() {
     const confirmed = window.confirm(
       "Permanently delete this interview session? " +
@@ -338,6 +371,16 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
           <Button
             type="button"
+            variant="outline"
+            onClick={handleRetryInterview}
+            disabled={isRetrying || isDeleting}
+          >
+            <RotateCcw className="size-4" />
+            {isRetrying ? "Creating…" : "Try again"}
+          </Button>
+
+          <Button
+            type="button"
             variant="destructive"
             onClick={handleDeleteInterview}
             disabled={isDeleting}
@@ -378,16 +421,29 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
     </div>
   </div>
 
+<div className="flex flex-wrap items-center gap-2">
+  <Button
+    type="button"
+    variant="outline"
+    size="sm"
+    onClick={handleRetryInterview}
+    disabled={isRetrying || isDeleting}
+  >
+    <RotateCcw className="size-4" />
+    {isRetrying ? "Creating…" : "Try again"}
+  </Button>
+
   <Button
     type="button"
     variant="destructive"
     size="sm"
     onClick={handleDeleteInterview}
-    disabled={isDeleting}
+    disabled={isDeleting || isRetrying}
   >
     <Trash2 className="size-4" />
     {isDeleting ? "Deleting…" : "Delete session"}
   </Button>
+</div>
 </div>
 {error && (
   <p className="mb-4 text-sm text-destructive">
