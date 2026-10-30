@@ -36,6 +36,7 @@ import type {
   ExecutionResult,
   FeedbackResponse,
   QuestionResponse,
+  QuestionWithAnswer,
   RoadmapResponse,
   RoundType,
   SessionSummary,
@@ -55,6 +56,126 @@ const ROUND_META: Record<RoundType, { label: string; icon: typeof Code2 }> = {
   machine_coding: { label: "Machine coding round", icon: Laptop2 },
   general: { label: "General round", icon: MessagesSquare },
 };
+
+function QuestionReviewList({
+  questions,
+}: {
+  questions: QuestionWithAnswer[];
+}) {
+  const hasAnsweredQuestions = questions.some(
+    (question) => question.answer !== null,
+  );
+
+  if (!hasAnsweredQuestions) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-labelledby="question-review-heading"
+      className="mt-6"
+    >
+      <h2
+        id="question-review-heading"
+        className="mb-3 font-heading text-xl font-semibold"
+      >
+        Question-by-question review
+      </h2>
+
+      <div className="flex flex-col gap-4">
+        {questions.map((question) => {
+          const answer = question.answer;
+
+          if (!answer) {
+            return null;
+          }
+
+          const round = ROUND_META[
+            question.round_type
+          ];
+
+          return (
+            <Card key={question.id}>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      Question {question.order_index + 1}
+                    </Badge>
+
+                    <Badge variant="outline">
+                      {round.label}
+                    </Badge>
+
+                    <Badge variant="secondary">
+                      {question.difficulty}
+                    </Badge>
+                  </div>
+
+                  <Badge
+                    variant={
+                      answer.score >= 70
+                        ? "success"
+                        : answer.score >= 50
+                          ? "secondary"
+                          : "destructive"
+                    }
+                  >
+                    Score: {answer.score}/100
+                  </Badge>
+                </div>
+
+                <CardTitle className="whitespace-pre-line text-base font-medium">
+                  {question.question_text}
+                </CardTitle>
+
+                <CardDescription>
+                  {answer.feedback}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="flex flex-col gap-5">
+                {answer.total_test_count !== null && (
+                  <Badge
+                    variant={
+                      answer.passed_test_count
+                        === answer.total_test_count
+                        ? "success"
+                        : "secondary"
+                    }
+                    className="w-fit"
+                  >
+                    {answer.passed_test_count}/
+                    {answer.total_test_count} test cases passed
+                  </Badge>
+                )}
+
+                {answer.execution_results &&
+                  answer.execution_results.length > 0 && (
+                    <TestCaseResults
+                      results={answer.execution_results}
+                    />
+                  )}
+
+                <ScoreList
+                  title="Strengths"
+                  items={answer.strengths}
+                  kind="positive"
+                />
+
+                <ScoreList
+                  title="Areas to improve"
+                  items={answer.improvements}
+                  kind="negative"
+                />
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 function ProgressBar({ answered, total }: { answered: number; total: number }) {
   const pct = total > 0 ? Math.min(100, (answered / total) * 100) : 0;
@@ -86,6 +207,8 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [session, setSession] = useState<SessionSummary | null>(null);
   const [currentQuestion, setCurrentQuestion] =
     useState<QuestionResponse | null>(null);
+  const [questions, setQuestions] =
+    useState<QuestionWithAnswer[]>([]);
   const [answerText, setAnswerText] = useState("");
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState<CodeLanguage>("python");
@@ -121,6 +244,9 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         const sorted = [...detail.questions].sort(
           (a, b) => a.order_index - b.order_index,
         );
+
+        setQuestions(sorted);
+
         const answered = sorted.filter((question) => question.answer);
         setAnsweredCount(answered.length);
 
@@ -193,6 +319,16 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
       });
 
       setLastAnswer(result.answer);
+      setQuestions((currentQuestions) =>
+        currentQuestions.map((question) =>
+          question.id === currentQuestion.id
+            ? {
+                ...question,
+                answer: result.answer,
+              }
+            : question,
+        ),
+      );
       setPendingNextQuestion(result.next_question);
       setPendingIsComplete(result.is_complete);
       setAnsweredCount((count) => count + 1);
@@ -393,6 +529,8 @@ async function handleRetryInterview() {
         </CardContent>
       </Card>
 
+      <QuestionReviewList questions={questions} />
+
       {error && (
         <p
           role="alert"
@@ -476,8 +614,10 @@ async function handleRetryInterview() {
           </Card>
         )}
 
+        <QuestionReviewList questions={questions} />
+
         {roadmap && roadmap.items.length > 0 && (
-          <Card className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+          <Card className="animate-fade-in-up mt-6" style={{ animationDelay: "0.1s" }}>
             <CardHeader>
               <CardTitle>Your learning roadmap</CardTitle>
               <CardDescription>
