@@ -3,6 +3,7 @@
 import {
   CircleStop,
   Code2,
+  Download,
   Laptop2,
   MessagesSquare,
   PartyPopper,
@@ -41,6 +42,10 @@ import type {
   RoundType,
   SessionSummary,
 } from "@/lib/types";
+import {
+  buildInterviewReport,
+  createInterviewReportFilename,
+} from "@/lib/interview-report";
 
 type Phase =
   | "loading"
@@ -437,6 +442,41 @@ async function handleRetryInterview() {
   }
 }
 
+    function handleDownloadReport(): void {
+  if (!session) {
+    return;
+  }
+
+  const report = buildInterviewReport({
+    session,
+    questions,
+    feedback,
+    roadmap,
+  });
+
+  const blob = new Blob(
+    [report],
+    {
+      type: "text/markdown;charset=utf-8",
+    },
+  );
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download =
+    createInterviewReportFilename(session);
+
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(downloadUrl);
+  }, 0);
+}
+
     async function handleDeleteInterview() {
     const confirmed = window.confirm(
       "Permanently delete this interview session? " +
@@ -508,6 +548,16 @@ async function handleRetryInterview() {
           <Button
             type="button"
             variant="outline"
+            onClick={handleDownloadReport}
+            disabled={!session || isRetrying || isDeleting}
+          >
+            <Download className="size-4" />
+            Download report
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
             onClick={handleRetryInterview}
             disabled={isRetrying || isDeleting}
           >
@@ -560,6 +610,16 @@ async function handleRetryInterview() {
   </div>
 
 <div className="flex flex-wrap items-center gap-2">
+  <Button
+    type="button"
+    variant="outline"
+    size="sm"
+    onClick={handleDownloadReport}
+    disabled={!session || isRetrying || isDeleting}
+  >
+    <Download className="size-4" />
+    Download report
+  </Button>
   <Button
     type="button"
     variant="outline"
