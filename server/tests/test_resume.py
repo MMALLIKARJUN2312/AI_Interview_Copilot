@@ -3,9 +3,19 @@ from sqlalchemy.orm import Session
 from app.models.resume import Resume
 from app.models.resume_analysis import ResumeAnalysis
 
-def _pdf_upload(target_role="Backend Engineer"):
-    files = {"file": ("resume.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")}
+def _pdf_upload(
+    target_role="Backend Engineer",
+    filename="resume.pdf",
+):
+    files = {
+        "file": (
+            filename,
+            io.BytesIO(b"%PDF-1.4 fake"),
+            "application/pdf",
+        )
+    }
     data = {"target_role": target_role}
+
     return files, data
 
 class FakeStorage:
@@ -387,3 +397,123 @@ def test_list_resumes_rejects_invalid_pagination(
         )
 
         assert response.status_code == 422
+        
+def test_list_resumes_searches_role_and_filename(
+    client,
+    auth_headers,
+    fake_ai,
+):
+    resume_data = [
+        (
+            "backend-profile.pdf",
+            "Backend Engineer",
+        ),
+        (
+            "platform-profile.pdf",
+            "Platform Engineer",
+        ),
+        (
+            "architect-profile.pdf",
+            "Solutions Architect",
+        ),
+    ]
+
+    for filename, target_role in resume_data:
+        files, data = _pdf_upload(
+            target_role=target_role,
+            filename=filename,
+        )
+
+        response = client.post(
+            "/resume/analyze",
+            headers=auth_headers,
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 200
+
+    role_response = client.get(
+        "/resume/?search=platform",
+        headers=auth_headers,
+    )
+
+    assert role_response.status_code == 200
+    assert [
+        resume["target_role"]
+        for resume in role_response.json()
+    ] == ["Platform Engineer"]
+
+    filename_response = client.get(
+        "/resume/?search=architect-profile",
+        headers=auth_headers,
+    )
+
+    assert filename_response.status_code == 200
+    assert [
+        resume["original_filename"]
+        for resume in filename_response.json()
+    ] == ["architect-profile.pdf"]
+
+
+def test_list_resumes_supports_sort_order(
+    client,
+    auth_headers,
+    fake_ai,
+):
+    created_ids = []
+
+    for target_role in [
+        "Backend Engineer",
+        "Platform Engineer",
+        "Staff Engineer",
+    ]:
+        files, data = _pdf_upload(
+            target_role=target_role,
+        )
+
+        response = client.post(
+            "/resume/analyze",
+            headers=auth_headers,
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 200
+        created_ids.append(
+            response.json()["resume_id"]
+        )
+
+    newest_response = client.get(
+        "/resume/?sort=newest",
+        headers=auth_headers,
+    )
+    oldest_response = client.get(
+        "/resume/?sort=oldest",
+        headers=auth_headers,
+    )
+
+    assert newest_response.status_code == 200
+    assert oldest_response.status_code == 200
+
+    assert [
+        resume["id"]
+        for resume in newest_response.json()
+    ] == list(reversed(created_ids))
+
+    assert [
+        resume["id"]
+        for resume in oldest_response.json()
+    ] == created_ids
+
+
+def test_list_resumes_rejects_invalid_sort(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        "/resume/?sort=unsupported",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422

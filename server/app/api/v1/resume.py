@@ -11,6 +11,7 @@ from fastapi import (
     UploadFile,
 )
 from sqlalchemy.orm import Session
+from typing import Literal
 
 from app.services.resume_service import ResumeService
 from app.services.storage import get_storage_backend
@@ -167,16 +168,27 @@ def list_resumes(
         default=0,
         ge=0,
     ),
-    current_user: User = Depends(
-        get_current_user
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=100,
     ),
+    sort: Literal[
+        "newest",
+        "oldest",
+    ] = Query(
+        default="newest",
+    ),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return resume_repository.get_user_resumes_page(
+    return resume_repository.get_user_resumes(
         db,
         current_user.id,
         limit=limit,
         offset=offset,
+        search_query=search,
+        sort_order=sort,
     )
 
 @router.get('/{resume_id}', response_model=ResumeSummary)

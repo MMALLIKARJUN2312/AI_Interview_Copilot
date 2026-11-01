@@ -4,6 +4,7 @@ from app.models.resume import Resume, ResumeStatus
 
 from app.repositories.base_repository import BaseRepository
 
+from sqlalchemy import or_
 class ResumeRepository(BaseRepository[Resume]):
     """Repository responsible for all resume persistence.
     Contains business specific queries that should not exist inside services
@@ -18,14 +19,57 @@ class ResumeRepository(BaseRepository[Resume]):
     def get_by_stored_filename(self, db : Session, stored_filename : str) -> Resume | None:
         return (db.query(Resume).filter(Resume.stored_filename == stored_filename).first())
     
-    def get_user_resumes(self, db : Session, user_id : int) -> list[Resume]:
-        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(Resume.created_at.desc()).all())
+    def get_user_resumes(
+        self,
+        db: Session,
+        user_id: int,
+        limit: int,
+        offset: int,
+        search_query: str | None = None,
+        sort_order: str = "newest",
+    ) -> list[Resume]:
+        query = db.query(Resume).filter(
+            Resume.user_id == user_id
+        )
 
-    def get_user_resumes_page(self, db: Session, user_id: int, limit: int, offset: int) -> list[Resume]:
-        return (db.query(Resume).filter(Resume.user_id == user_id).order_by(
+        if search_query:
+            escaped_query = (
+                search_query.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+
+            if escaped_query:
+                search_pattern = f"%{escaped_query}%"
+
+                query = query.filter(
+                    or_(
+                        Resume.target_role.ilike(
+                            search_pattern,
+                            escape="\\",
+                        ),
+                        Resume.original_filename.ilike(
+                            search_pattern,
+                            escape="\\",
+                        ),
+                    )
+                )
+
+        if sort_order == "oldest":
+            ordering = (
+                Resume.created_at.asc(),
+                Resume.id.asc(),
+            )
+        else:
+            ordering = (
                 Resume.created_at.desc(),
                 Resume.id.desc(),
             )
+
+        return (
+            query
+            .order_by(*ordering)
             .offset(offset)
             .limit(limit)
             .all()

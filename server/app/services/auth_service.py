@@ -159,7 +159,7 @@ class AuthService:
         if not verify_password(current_password, user.hashed_password):
             raise CurrentPasswordMismatchError("Current password is incorrect")
 
-        resumes = resume_repository.get_user_resumes(db, user.id)
+        resumes = resume_repository.get_user_resumes(db, user.id, limit=100, offset=0)
         stored_files = [
             resume.stored_filename
             for resume in resumes
