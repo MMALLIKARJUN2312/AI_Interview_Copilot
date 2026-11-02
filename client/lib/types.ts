@@ -18,6 +18,10 @@ export interface ResumeSummary {
   created_at: string;
 }
 
+export type ResumeSort =
+  | "newest"
+  | "oldest";
+
 export interface ResumeAnalysisResponse {
   resume_id: number;
   analysis_id: number;

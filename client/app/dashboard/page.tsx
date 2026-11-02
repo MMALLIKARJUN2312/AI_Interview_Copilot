@@ -40,6 +40,7 @@ import type {
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeSummary,
+  ResumeSort,
   SessionSummary,
 } from "@/lib/types";
 
@@ -102,6 +103,12 @@ function DashboardContent() {
 
   const [resumes, setResumes] =
     useState<ResumeSummary[] | null>(null);
+  const [resumeSort, setResumeSort] =
+    useState<ResumeSort>("newest");
+  const [resumeSearchInput, setResumeSearchInput] =
+    useState("");
+  const [resumeSearchQuery, setResumeSearchQuery] =
+    useState("");
   const [sessionStatusFilter, setSessionStatusFilter] =
     useState<SessionStatusFilter>("all");
   const [sessionSort, setSessionSort] =
@@ -150,10 +157,17 @@ useEffect(() => {
   let cancelled = false;
 
   async function loadResumes(): Promise<void> {
+    setResumes(null);
+    setError(null);
+
     try {
       const resumeList = await api.listResumes({
         limit: DASHBOARD_PAGE_SIZE,
         offset: 0,
+        sort: resumeSort,
+        ...(resumeSearchQuery
+          ? { search: resumeSearchQuery }
+          : {}),
       });
 
       if (cancelled) {
@@ -164,10 +178,15 @@ useEffect(() => {
       setHasMoreResumes(
         resumeList.length === DASHBOARD_PAGE_SIZE,
       );
-    } catch {
+    } catch (error) {
       if (!cancelled) {
         setResumes([]);
-        setError("Unable to load your resumes right now.");
+        setHasMoreResumes(false);
+        setError(
+          error instanceof ApiError
+            ? error.message
+            : "Unable to load your resumes right now.",
+        );
       }
     }
   }
@@ -177,7 +196,7 @@ useEffect(() => {
   return () => {
     cancelled = true;
   };
-}, []);
+}, [resumeSearchQuery, resumeSort]);
 
 useEffect(() => {
   let cancelled = false;
@@ -277,6 +296,10 @@ async function handleLoadMoreResumes(): Promise<void> {
     const nextPage = await api.listResumes({
       limit: DASHBOARD_PAGE_SIZE,
       offset: resumes.length,
+      sort: resumeSort,
+      ...(resumeSearchQuery
+        ? { search: resumeSearchQuery }
+        : {}),
     });
 
     setResumes((currentResumes) =>
@@ -479,6 +502,21 @@ function handleClearSessionSearch(): void {
   setSessionSearchQuery("");
 }
 
+function handleResumeSearch(
+  event: FormEvent<HTMLFormElement>,
+): void {
+  event.preventDefault();
+
+  setResumeSearchQuery(
+    resumeSearchInput.trim(),
+  );
+}
+
+function handleClearResumeSearch(): void {
+  setResumeSearchInput("");
+  setResumeSearchQuery("");
+}
+
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
       <div className="animate-fade-in-up mb-8 flex items-center justify-between">
@@ -560,16 +598,98 @@ function handleClearSessionSearch(): void {
       {error && <p className="mb-6 text-sm text-destructive">{error}</p>}
 
       <section className="mb-10">
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
-          <FileText className="size-4 text-muted-foreground" />
-          Your resumes
-        </h2>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-medium">
+            <FileText className="size-4 text-muted-foreground" />
+            Your resumes
+          </h2>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <form
+              className="flex items-center gap-2"
+              onSubmit={handleResumeSearch}
+            >
+              <Label
+                htmlFor="resume-search"
+                className="sr-only"
+              >
+                Search resumes
+              </Label>
+
+              <Input
+                id="resume-search"
+                type="search"
+                maxLength={100}
+                placeholder="Search role or filename"
+                value={resumeSearchInput}
+                onChange={(event) =>
+                  setResumeSearchInput(
+                    event.target.value,
+                  )
+                }
+                className="w-full sm:w-56"
+              />
+
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+              >
+                <Search className="size-4" />
+                Search
+              </Button>
+
+              {resumeSearchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearResumeSearch}
+                  aria-label="Clear resume search"
+                >
+                  <X className="size-4" />
+                </Button>
+              )}
+            </form>
+
+            <div>
+              <Label
+                htmlFor="resume-sort"
+                className="sr-only"
+              >
+                Sort resumes
+              </Label>
+
+              <select
+                id="resume-sort"
+                value={resumeSort}
+                onChange={(event) =>
+                  setResumeSort(
+                    event.target.value as ResumeSort,
+                  )
+                }
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="newest">
+                  Newest first
+                </option>
+                <option value="oldest">
+                  Oldest first
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
         {resumes === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : resumes.length === 0 ? (
           <EmptyState
             icon={Inbox}
-            message="No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
+            message={
+              resumeSearchQuery
+                ? `No resumes found for "${resumeSearchQuery}".`
+                : "No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
+            }
           />
         ) : (
 <>

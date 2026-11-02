@@ -5,6 +5,7 @@ import type {
   InterviewStatistics,
   ResumeAnalysisResponse,
   ResumeSummary,
+  ResumeSort,
   RoundConfig,
   RunCodeResponse,
   SessionDetailResponse,
@@ -36,6 +37,11 @@ interface ApiValidationError {
 interface PaginationOptions {
   limit?: number;
   offset?: number;
+}
+
+interface ResumeListOptions extends PaginationOptions {
+  search?: string;
+  sort?: ResumeSort;
 }
 
 interface SessionListOptions extends PaginationOptions {
@@ -461,12 +467,25 @@ async deleteAccount(currentPassword: string) {
   },
 
 listResumes(
-  options: PaginationOptions = {},
+  options: ResumeListOptions = {},
 ) {
-  const query = createPaginationQuery(options);
+  const params = new URLSearchParams(
+    createPaginationQuery(options),
+  );
+
+  if (options.search?.trim()) {
+    params.set(
+      "search",
+      options.search.trim(),
+    );
+  }
+
+  if (options.sort) {
+    params.set("sort", options.sort);
+  }
 
   return request<ResumeSummary[]>(
-    `/resume/?${query}`,
+    `/resume/?${params.toString()}`,
   );
 },
 
