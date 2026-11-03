@@ -2,6 +2,7 @@
 
 import {
   Code2,
+  Download,
   Laptop2,
   MessagesSquare,
   Trash2,
@@ -28,6 +29,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/api";
+import {
+  buildResumeReport,
+  createResumeReportFilename,
+} from "@/lib/resume-report";
 import type {
   ResumeAnalysisResponse,
   ResumeSummary,
@@ -138,6 +143,39 @@ const [isDeleting, setIsDeleting] =
     }
   }
 
+  function handleDownloadReport(): void {
+  if (!resume || !analysis) {
+    return;
+  }
+
+  const report = buildResumeReport({
+    resume,
+    analysis,
+  });
+
+  const blob = new Blob(
+    [report],
+    {
+      type: "text/markdown;charset=utf-8",
+    },
+  );
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download =
+    createResumeReportFilename(resume);
+
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(downloadUrl);
+  }, 0);
+}
+
   async function handleDeleteResume(
   event: FormEvent<HTMLFormElement>,
 ): Promise<void> {
@@ -228,11 +266,37 @@ const [isDeleting, setIsDeleting] =
               <ScoreRing score={analysis.ats_score} />
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <ScoreList title="Strengths" items={analysis.strengths} kind="positive" />
-            <ScoreList title="Weaknesses" items={analysis.weaknesses} kind="negative" />
-            <ScoreList title="Suggestions" items={analysis.suggestions} kind="suggestion" />
-          </CardContent>
+<CardContent className="flex flex-col gap-5">
+  <ScoreList
+    title="Strengths"
+    items={analysis.strengths}
+    kind="positive"
+  />
+
+  <ScoreList
+    title="Weaknesses"
+    items={analysis.weaknesses}
+    kind="negative"
+  />
+
+  <ScoreList
+    title="Suggestions"
+    items={analysis.suggestions}
+    kind="suggestion"
+  />
+
+  <div className="border-t border-border pt-5">
+    <Button
+      type="button"
+      variant="outline"
+      className="w-fit"
+      onClick={handleDownloadReport}
+    >
+      <Download className="size-4" />
+      Download analysis report
+    </Button>
+  </div>
+</CardContent>
         </Card>
       )}
 
