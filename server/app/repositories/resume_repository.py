@@ -25,12 +25,17 @@ class ResumeRepository(BaseRepository[Resume]):
         user_id: int,
         limit: int,
         offset: int,
+        resume_status: ResumeStatus | None = None,
         search_query: str | None = None,
         sort_order: str = "newest",
     ) -> list[Resume]:
         query = db.query(Resume).filter(
             Resume.user_id == user_id
         )
+        if resume_status is not None:
+            query = query.filter(
+                Resume.status == resume_status
+            )
 
         if search_query:
             escaped_query = (

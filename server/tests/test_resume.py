@@ -1,6 +1,6 @@
 import io
 from sqlalchemy.orm import Session
-from app.models.resume import Resume
+from app.models.resume import Resume, ResumeStatus
 from app.models.resume_analysis import ResumeAnalysis
 
 def _pdf_upload(
@@ -513,6 +513,81 @@ def test_list_resumes_rejects_invalid_sort(
 ):
     response = client.get(
         "/resume/?sort=unsupported",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    
+def test_list_resumes_filters_by_status(
+    client,
+    auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    with Session(db_engine) as db:
+        db.add_all(
+            [
+                Resume(
+                    user_id=1,
+                    original_filename="pending.pdf",
+                    stored_filename="pending-status.pdf",
+                    mime_type="application/pdf",
+                    file_size=10,
+                    target_role="Platform Engineer",
+                    status=ResumeStatus.UPLOADED,
+                ),
+                Resume(
+                    user_id=1,
+                    original_filename="failed.pdf",
+                    stored_filename="failed-status.pdf",
+                    mime_type="application/pdf",
+                    file_size=10,
+                    target_role="Staff Engineer",
+                    status=ResumeStatus.FAILED,
+                ),
+            ]
+        )
+        db.commit()
+
+    analyzed_response = client.get(
+        "/resume/?status=analyzed",
+        headers=auth_headers,
+    )
+    uploaded_response = client.get(
+        "/resume/?status=uploaded",
+        headers=auth_headers,
+    )
+    failed_response = client.get(
+        "/resume/?status=failed",
+        headers=auth_headers,
+    )
+
+    assert analyzed_response.status_code == 200
+    assert uploaded_response.status_code == 200
+    assert failed_response.status_code == 200
+
+    assert [
+        resume["status"]
+        for resume in analyzed_response.json()
+    ] == ["analyzed"]
+
+    assert [
+        resume["original_filename"]
+        for resume in uploaded_response.json()
+    ] == ["pending.pdf"]
+
+    assert [
+        resume["original_filename"]
+        for resume in failed_response.json()
+    ] == ["failed.pdf"]
+
+
+def test_list_resumes_rejects_invalid_status(
+    client,
+    auth_headers,
+):
+    response = client.get(
+        "/resume/?status=archived",
         headers=auth_headers,
     )
 

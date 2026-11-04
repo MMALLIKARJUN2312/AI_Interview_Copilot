@@ -168,6 +168,9 @@ def list_resumes(
         default=0,
         ge=0,
     ),
+        status: ResumeStatus | None = Query(
+        default=None,
+    ),
     search: str | None = Query(
         default=None,
         min_length=1,
@@ -187,6 +190,7 @@ def list_resumes(
         current_user.id,
         limit=limit,
         offset=offset,
+        resume_status=status,
         search_query=search,
         sort_order=sort,
     )
