@@ -10,11 +10,17 @@ export interface TokenResponse {
   token_type: string;
 }
 
+
+export type ResumeStatus =
+  | "uploaded"
+  | "analyzed"
+  | "failed";
+
 export interface ResumeSummary {
   id: number;
   original_filename: string;
   target_role: string;
-  status: "uploaded" | "analyzed" | "failed";
+  status: ResumeStatus;
   created_at: string;
 }
 

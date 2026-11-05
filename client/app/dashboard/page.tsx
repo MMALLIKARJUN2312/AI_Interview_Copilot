@@ -40,6 +40,7 @@ import type {
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeSummary,
+  ResumeStatus,
   ResumeSort,
   SessionSummary,
 } from "@/lib/types";
@@ -48,6 +49,10 @@ const DASHBOARD_PAGE_SIZE = 10;
 type SessionStatusFilter =
   | "all"
   | InterviewSessionStatus;
+
+type ResumeStatusFilter =
+  | "all"
+  | ResumeStatus;
 
 function appendUniqueById<T extends { id: number }>(
   currentItems: T[],
@@ -105,6 +110,8 @@ function DashboardContent() {
     useState<ResumeSummary[] | null>(null);
   const [resumeSort, setResumeSort] =
     useState<ResumeSort>("newest");
+  const [resumeStatusFilter, setResumeStatusFilter] =
+    useState<ResumeStatusFilter>("all");
   const [resumeSearchInput, setResumeSearchInput] =
     useState("");
   const [resumeSearchQuery, setResumeSearchQuery] =
@@ -196,7 +203,7 @@ useEffect(() => {
   return () => {
     cancelled = true;
   };
-}, [resumeSearchQuery, resumeSort]);
+}, [resumeSearchQuery, resumeSort, resumeStatusFilter]);
 
 useEffect(() => {
   let cancelled = false;
@@ -297,6 +304,9 @@ async function handleLoadMoreResumes(): Promise<void> {
       limit: DASHBOARD_PAGE_SIZE,
       offset: resumes.length,
       sort: resumeSort,
+      ...(resumeStatusFilter === "all"
+        ? {}
+        : { status: resumeStatusFilter }),
       ...(resumeSearchQuery
         ? { search: resumeSearchQuery }
         : {}),
@@ -678,6 +688,31 @@ function handleClearResumeSearch(): void {
                 </option>
               </select>
             </div>
+
+            <div>
+              <Label
+                htmlFor="resume-status-filter"
+                className="sr-only"
+              >
+                Filter resumes by status
+              </Label>
+
+              <select
+                id="resume-status-filter"
+                value={resumeStatusFilter}
+                onChange={(event) =>
+                  setResumeStatusFilter(
+                    event.target.value as ResumeStatusFilter,
+                  )
+                }
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="all">All resumes</option>
+                <option value="analyzed">Analyzed</option>
+                <option value="uploaded">Uploaded</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
           </div>
         </div>
         {resumes === null ? (
@@ -688,7 +723,9 @@ function handleClearResumeSearch(): void {
             message={
               resumeSearchQuery
                 ? `No resumes found for "${resumeSearchQuery}".`
-                : "No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
+                : resumeStatusFilter === "all"
+                  ? "No resumes yet. Upload one to get a role-aligned ATS analysis and start a mock interview."
+                  : `No ${resumeStatusFilter} resumes found.`
             }
           />
         ) : (

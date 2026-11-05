@@ -5,6 +5,7 @@ import type {
   InterviewStatistics,
   ResumeAnalysisResponse,
   ResumeSummary,
+  ResumeStatus,
   ResumeSort,
   RoundConfig,
   RunCodeResponse,
@@ -40,6 +41,7 @@ interface PaginationOptions {
 }
 
 interface ResumeListOptions extends PaginationOptions {
+  status?: ResumeStatus;
   search?: string;
   sort?: ResumeSort;
 }
@@ -472,6 +474,10 @@ listResumes(
   const params = new URLSearchParams(
     createPaginationQuery(options),
   );
+
+  if (options.status) {
+    params.set("status", options.status);
+  }
 
   if (options.search?.trim()) {
     params.set(
