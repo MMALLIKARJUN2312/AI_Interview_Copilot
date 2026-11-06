@@ -1,7 +1,7 @@
 import io
 from sqlalchemy.orm import Session
 from app.models.resume import Resume, ResumeStatus
-from app.models.resume_analysis import ResumeAnalysis
+from app.models.resume_analysis import (AnalysisStatus, ResumeAnalysis)
 
 def _pdf_upload(
     target_role="Backend Engineer",
@@ -592,3 +592,133 @@ def test_list_resumes_rejects_invalid_status(
     )
 
     assert response.status_code == 422
+    
+def test_retry_failed_resume_analysis(
+    client,
+    auth_headers,
+    fake_ai,
+    db_engine,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    with Session(db_engine) as db:
+        resume = Resume(
+            user_id=1,
+            original_filename="failed-resume.pdf",
+            stored_filename="failed-resume.pdf",
+            mime_type="application/pdf",
+            file_size=10,
+            target_role="Backend Engineer",
+            job_description="Build reliable APIs",
+            status=ResumeStatus.FAILED,
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+
+        db.add(
+            ResumeAnalysis(
+                resume_id=resume.id,
+                ats_score=0,
+                strengths=[],
+                weaknesses=[],
+                suggestions=[],
+                provider="unknown",
+                model="unknown",
+                processing_time_ms=0,
+                status=AnalysisStatus.FAILED,
+                error_message="Temporary provider failure",
+            )
+        )
+        db.commit()
+
+        resume_id = resume.id
+
+    response = client.post(
+        f"/resume/{resume_id}/retry",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["resume_id"] == resume_id
+    assert body["target_role"] == "Backend Engineer"
+    assert body["ats_score"] == 82
+
+    with Session(db_engine) as db:
+        updated_resume = db.get(
+            Resume,
+            resume_id,
+        )
+
+        assert updated_resume is not None
+        assert updated_resume.status == ResumeStatus.ANALYZED
+
+        analyses = (
+            db.query(ResumeAnalysis)
+            .filter(
+                ResumeAnalysis.resume_id == resume_id,
+            )
+            .all()
+        )
+
+        assert len(analyses) == 2
+        assert any(
+            analysis.status == AnalysisStatus.SUCCESS
+            for analysis in analyses
+        )
+
+
+def test_retry_resume_requires_a_failed_status(
+    client,
+    auth_headers,
+    uploaded_resume,
+):
+    response = client.post(
+        f"/resume/{uploaded_resume['resume_id']}/retry",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Resume analysis can only be retried "
+        "after a failed analysis"
+    )
+
+
+def test_retry_resume_hides_other_users_resume(
+    client,
+    auth_headers,
+    other_auth_headers,
+    db_engine,
+):
+    with Session(db_engine) as db:
+        resume = Resume(
+            user_id=1,
+            original_filename="private.pdf",
+            stored_filename="private.pdf",
+            mime_type="application/pdf",
+            file_size=10,
+            target_role="Backend Engineer",
+            status=ResumeStatus.FAILED,
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+        resume_id = resume.id
+
+    response = client.post(
+        f"/resume/{resume_id}/retry",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume not found"
