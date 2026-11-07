@@ -513,6 +513,15 @@ listResumes(
     );
   },
 
+  retryResumeAnalysis(resumeId: number) {
+  return request<ResumeAnalysisResponse>(
+    `/resume/${resumeId}/retry`,
+    {
+      method: "POST",
+    },
+  );
+},
+
   startInterview(payload: {
     resumeId: number;
     rounds?: RoundConfig[];

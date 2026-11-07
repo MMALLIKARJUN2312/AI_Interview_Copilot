@@ -5,6 +5,7 @@ import {
   Download,
   Laptop2,
   MessagesSquare,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -96,6 +97,10 @@ const [deleteError, setDeleteError] =
   useState<string | null>(null);
 const [isDeleting, setIsDeleting] =
   useState(false);
+const [retryError, setRetryError] =
+  useState<string | null>(null);
+const [isRetryingAnalysis, setIsRetryingAnalysis] =
+  useState(false);
 
   useEffect(() => {
     api
@@ -142,6 +147,36 @@ const [isDeleting, setIsDeleting] =
       setIsStarting(false);
     }
   }
+
+  async function handleRetryAnalysis(): Promise<void> {
+  setRetryError(null);
+  setIsRetryingAnalysis(true);
+
+  try {
+    const result = await api.retryResumeAnalysis(
+      resumeId,
+    );
+
+    setAnalysis(result);
+
+    setResume((currentResume) =>
+      currentResume
+        ? {
+            ...currentResume,
+            status: "analyzed",
+          }
+        : currentResume,
+    );
+  } catch (error) {
+    setRetryError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to retry the analysis. Please try again.",
+    );
+  } finally {
+    setIsRetryingAnalysis(false);
+  }
+}
 
   function handleDownloadReport(): void {
   if (!resume || !analysis) {
@@ -246,8 +281,37 @@ const [isDeleting, setIsDeleting] =
 
       {resume.status === "failed" && (
         <Card className="animate-fade-in-up mb-6">
-          <CardContent className="text-sm text-destructive">
-            Analysis failed for this resume. Please upload it again.
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <div>
+              <p className="text-sm font-medium text-destructive">
+                Analysis failed for this resume.
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your uploaded PDF is still available. Retry the
+                analysis without uploading it again.
+              </p>
+            </div>
+
+            {retryError && (
+              <p
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {retryError}
+              </p>
+            )}
+
+            <Button
+              type="button"
+              className="w-fit"
+              onClick={() => void handleRetryAnalysis()}
+              disabled={isRetryingAnalysis || isDeleting}
+            >
+              <RotateCcw className="size-4" />
+              {isRetryingAnalysis
+                ? "Retrying analysis…"
+                : "Retry analysis"}
+            </Button>
           </CardContent>
         </Card>
       )}
