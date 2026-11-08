@@ -19,10 +19,25 @@ class ResumeAnalysisRepository(BaseRepository[ResumeAnalysis]):
 
         return db.execute(stmt).scalar_one_or_none()
 
-    def get_analysis_history(self, db : Session, resume_id : int) -> list[ResumeAnalysis]:
-        stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id).order_by(ResumeAnalysis.created_at.desc()))
+    def get_analysis_history(
+        self,
+        db: Session,
+        resume_id: int,
+    ) -> list[ResumeAnalysis]:
+        stmt = (
+            select(ResumeAnalysis)
+            .where(
+                ResumeAnalysis.resume_id == resume_id,
+            )
+            .order_by(
+                ResumeAnalysis.created_at.desc(),
+                ResumeAnalysis.id.desc(),
+            )
+        )
 
-        return list(db.execute(stmt).scalars().all())
+        return list(
+            db.execute(stmt).scalars().all()
+        )
     
     def get_successful_analyses(self, db : Session, resume_id : int) -> list[ResumeAnalysis]:
         stmt = (select(ResumeAnalysis).where(ResumeAnalysis.resume_id == resume_id, ResumeAnalysis.status == AnalysisStatus.SUCCESS))

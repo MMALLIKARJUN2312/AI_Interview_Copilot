@@ -30,7 +30,10 @@ from app.models.resume_analysis import ResumeAnalysis, AnalysisStatus
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
 from app.schemas.resume import ResumeSummary
-from app.schemas.resume_analysis import ResumeAnalysisResponse
+from app.schemas.resume_analysis import (
+    ResumeAnalysisHistoryResponse,
+    ResumeAnalysisResponse,
+)
 
 router = APIRouter(
     prefix='/resume',
@@ -328,6 +331,34 @@ def list_resumes(
         resume_status=status,
         search_query=search,
         sort_order=sort,
+    )
+    
+@router.get(
+    "/{resume_id}/analyses",
+    response_model=list[ResumeAnalysisHistoryResponse],
+)
+def list_resume_analysis_history(
+    resume_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    resume = resume_repository.get_by_id(
+        db,
+        resume_id,
+    )
+
+    if (
+        resume is None
+        or resume.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Resume not found",
+        )
+
+    return resume_analysis_repository.get_analysis_history(
+        db,
+        resume.id,
     )
 
 @router.get('/{resume_id}', response_model=ResumeSummary)

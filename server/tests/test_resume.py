@@ -722,3 +722,59 @@ def test_retry_resume_hides_other_users_resume(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume not found"
+    
+def test_list_resume_analysis_history(
+    client,
+    auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    resume_id = uploaded_resume["resume_id"]
+
+    with Session(db_engine) as db:
+        db.add(
+            ResumeAnalysis(
+                resume_id=resume_id,
+                ats_score=0,
+                strengths=[],
+                weaknesses=[],
+                suggestions=[],
+                provider="unknown",
+                model="unknown",
+                processing_time_ms=0,
+                status=AnalysisStatus.FAILED,
+                error_message="Temporary provider failure",
+            )
+        )
+        db.commit()
+
+    response = client.get(
+        f"/resume/{resume_id}/analyses",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    history = response.json()
+
+    assert len(history) == 2
+    assert history[0]["status"] == "failed"
+    assert history[0]["error_message"] == (
+        "Temporary provider failure"
+    )
+    assert history[1]["status"] == "success"
+    assert history[1]["ats_score"] == 82
+
+
+def test_list_resume_analysis_history_hides_other_users_resume(
+    client,
+    uploaded_resume,
+    other_auth_headers,
+):
+    response = client.get(
+        f"/resume/{uploaded_resume['resume_id']}/analyses",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume not found"
