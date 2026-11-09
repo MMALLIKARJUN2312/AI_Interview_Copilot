@@ -4,6 +4,7 @@ import type {
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeAnalysisResponse,
+  ResumeAnalysisHistoryItem,
   ResumeSummary,
   ResumeStatus,
   ResumeSort,
@@ -510,6 +511,14 @@ listResumes(
   getResumeAnalysis(resumeId: number) {
     return request<ResumeAnalysisResponse>(
       `/resume/${resumeId}/analysis`,
+    );
+  },
+
+  listResumeAnalysisHistory(
+    resumeId: number,
+  ) {
+    return request<ResumeAnalysisHistoryItem[]>(
+      `/resume/${resumeId}/analyses`,
     );
   },
 

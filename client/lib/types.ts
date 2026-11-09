@@ -38,6 +38,17 @@ export interface ResumeAnalysisResponse {
   suggestions: string[];
 }
 
+export interface ResumeAnalysisHistoryItem {
+  id: number;
+  ats_score: number;
+  status: "success" | "failed";
+  provider: string;
+  model: string;
+  processing_time_ms: number;
+  error_message: string | null;
+  created_at: string;
+}
+
 export type InterviewSessionStatus =
   | "pending"
   | "in_progress"

@@ -36,6 +36,7 @@ import {
 } from "@/lib/resume-report";
 import type {
   ResumeAnalysisResponse,
+  ResumeAnalysisHistoryItem,
   ResumeSummary,
   RoundType,
 } from "@/lib/types";
@@ -74,12 +75,28 @@ const ROUND_OPTIONS: {
   },
 ];
 
+function formatAnalysisAttemptDate(
+  value: string,
+): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
 function ResumeDetail({ resumeId }: { resumeId: number }) {
   const router = useRouter();
   const [resume, setResume] = useState<ResumeSummary | null>(null);
   const [analysis, setAnalysis] = useState<ResumeAnalysisResponse | null>(
     null,
   );
+  const [analysisHistory, setAnalysisHistory] =
+    useState<ResumeAnalysisHistoryItem[] | null>(
+      null,
+    );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [roundState, setRoundState] = useState(() =>
     Object.fromEntries(
@@ -102,7 +119,7 @@ const [retryError, setRetryError] =
 const [isRetryingAnalysis, setIsRetryingAnalysis] =
   useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     api
       .getResume(resumeId)
       .then(setResume)
@@ -116,6 +133,11 @@ const [isRetryingAnalysis, setIsRetryingAnalysis] =
           setLoadError("Unable to load the analysis for this resume.");
         }
       });
+
+    api
+      .listResumeAnalysisHistory(resumeId)
+      .then(setAnalysisHistory)
+      .catch(() => setAnalysisHistory([]));
   }, [resumeId]);
 
   async function handleStartInterview() {
@@ -158,6 +180,11 @@ const [isRetryingAnalysis, setIsRetryingAnalysis] =
     );
 
     setAnalysis(result);
+
+    void api
+      .listResumeAnalysisHistory(resumeId)
+      .then(setAnalysisHistory)
+      .catch(() => {});
 
     setResume((currentResume) =>
       currentResume
@@ -361,6 +388,66 @@ const [isRetryingAnalysis, setIsRetryingAnalysis] =
     </Button>
   </div>
 </CardContent>
+        </Card>
+      )}
+
+      {analysisHistory && analysisHistory.length > 0 && (
+        <Card className="animate-fade-in-up mb-6">
+          <CardHeader>
+            <CardTitle>Analysis attempts</CardTitle>
+            <CardDescription>
+              Your latest resume analysis attempts, including any
+              recovered failures.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            <ol className="space-y-3">
+              {analysisHistory.map((attempt, index) => (
+                <li
+                  key={attempt.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-start sm:justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">
+                        Attempt {analysisHistory.length - index}
+                      </p>
+
+                      <Badge
+                        variant={
+                          attempt.status === "success"
+                            ? "success"
+                            : "destructive"
+                        }
+                      >
+                        {attempt.status}
+                      </Badge>
+                    </div>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatAnalysisAttemptDate(
+                        attempt.created_at,
+                      )}
+                    </p>
+
+                    {attempt.status === "failed" &&
+                      attempt.error_message && (
+                        <p className="mt-2 text-sm text-destructive">
+                          {attempt.error_message}
+                        </p>
+                      )}
+                  </div>
+
+                  {attempt.status === "success" && (
+                    <p className="text-sm font-medium">
+                      ATS score: {attempt.ats_score}/100
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </CardContent>
         </Card>
       )}
 
