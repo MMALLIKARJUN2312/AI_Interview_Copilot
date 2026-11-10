@@ -15,3 +15,10 @@ class ResumeSummary(BaseModel):
     created_at : datetime
 
     model_config = {"from_attributes" : True}
+
+class ResumeStatisticsResponse(BaseModel):
+    total_resumes: int
+    analyzed_resumes: int
+    uploaded_resumes: int
+    failed_resumes: int
+    average_ats_score: float | None

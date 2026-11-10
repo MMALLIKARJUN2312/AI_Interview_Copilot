@@ -29,7 +29,10 @@ from app.models.resume import Resume, ResumeStatus
 from app.models.resume_analysis import ResumeAnalysis, AnalysisStatus
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
-from app.schemas.resume import ResumeSummary
+from app.schemas.resume import (
+    ResumeStatisticsResponse,
+    ResumeSummary,
+)
 from app.schemas.resume_analysis import (
     ResumeAnalysisHistoryResponse,
     ResumeAnalysisResponse,
@@ -333,6 +336,19 @@ def list_resumes(
         sort_order=sort,
     )
     
+@router.get(
+    "/statistics",
+    response_model=ResumeStatisticsResponse,
+)
+def get_resume_statistics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return resume_repository.get_user_resume_statistics(
+        db,
+        current_user.id,
+    )    
+
 @router.get(
     "/{resume_id}/analyses",
     response_model=list[ResumeAnalysisHistoryResponse],

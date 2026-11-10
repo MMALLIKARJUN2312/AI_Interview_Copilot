@@ -1,10 +1,15 @@
 from sqlalchemy.orm import Session
 
 from app.models.resume import Resume, ResumeStatus
+from app.models.resume_analysis import (
+    AnalysisStatus,
+    ResumeAnalysis,
+)
 
 from app.repositories.base_repository import BaseRepository
 
-from sqlalchemy import or_
+from sqlalchemy import case, func, or_
+
 class ResumeRepository(BaseRepository[Resume]):
     """Repository responsible for all resume persistence.
     Contains business specific queries that should not exist inside services
@@ -85,6 +90,88 @@ class ResumeRepository(BaseRepository[Resume]):
         
     def get_user_resume_count(self, db : Session, user_id : int) -> int:
         return (db.query(Resume).filter(Resume.user_id == user_id).count())
+    
+    def get_user_resume_statistics(
+        self,
+        db: Session,
+        user_id: int,
+    ) -> dict[str, int | float | None]:
+        counts = (
+            db.query(
+                func.count(Resume.id).label(
+                    "total_resumes",
+                ),
+                func.sum(
+                    case(
+                        (
+                            Resume.status
+                            == ResumeStatus.ANALYZED,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("analyzed_resumes"),
+                func.sum(
+                    case(
+                        (
+                            Resume.status
+                            == ResumeStatus.UPLOADED,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("uploaded_resumes"),
+                func.sum(
+                    case(
+                        (
+                            Resume.status
+                            == ResumeStatus.FAILED,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("failed_resumes"),
+            )
+            .filter(Resume.user_id == user_id)
+            .one()
+        )
+
+        average_ats_score = (
+            db.query(
+                func.avg(
+                    ResumeAnalysis.ats_score,
+                )
+            )
+            .join(
+                Resume,
+                Resume.id == ResumeAnalysis.resume_id,
+            )
+            .filter(
+                Resume.user_id == user_id,
+                Resume.status == ResumeStatus.ANALYZED,
+                ResumeAnalysis.status
+                == AnalysisStatus.SUCCESS,
+            )
+            .scalar()
+        )
+
+        return {
+            "total_resumes": counts.total_resumes,
+            "analyzed_resumes": (
+                counts.analyzed_resumes or 0
+            ),
+            "uploaded_resumes": (
+                counts.uploaded_resumes or 0
+            ),
+            "failed_resumes": (
+                counts.failed_resumes or 0
+            ),
+            "average_ats_score": (
+                float(average_ats_score)
+                if average_ats_score is not None
+                else None
+            ),
+        }
     
     def update_status(self, resume : Resume, status : ResumeStatus) -> Resume:
         resume.status = status

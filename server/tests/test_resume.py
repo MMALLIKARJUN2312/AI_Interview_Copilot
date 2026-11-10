@@ -778,3 +778,97 @@ def test_list_resume_analysis_history_hides_other_users_resume(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume not found"
+
+def test_get_resume_statistics(
+    client,
+    auth_headers,
+    fake_ai,
+    db_engine,
+):
+    for target_role in [
+        "Backend Engineer",
+        "Platform Engineer",
+    ]:
+        files, data = _pdf_upload(
+            target_role=target_role,
+        )
+
+        response = client.post(
+            "/resume/analyze",
+            headers=auth_headers,
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 200
+
+    with Session(db_engine) as db:
+        db.add_all(
+            [
+                Resume(
+                    user_id=1,
+                    original_filename="pending.pdf",
+                    stored_filename="pending.pdf",
+                    mime_type="application/pdf",
+                    file_size=10,
+                    target_role="Staff Engineer",
+                    status=ResumeStatus.UPLOADED,
+                ),
+                Resume(
+                    user_id=1,
+                    original_filename="failed.pdf",
+                    stored_filename="failed.pdf",
+                    mime_type="application/pdf",
+                    file_size=10,
+                    target_role="Solutions Architect",
+                    status=ResumeStatus.FAILED,
+                ),
+            ]
+        )
+        db.commit()
+
+    response = client.get(
+        "/resume/statistics",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total_resumes": 4,
+        "analyzed_resumes": 2,
+        "uploaded_resumes": 1,
+        "failed_resumes": 1,
+        "average_ats_score": 82.0,
+    }
+
+
+def test_get_resume_statistics_is_user_scoped(
+    client,
+    auth_headers,
+    other_auth_headers,
+    fake_ai,
+):
+    files, data = _pdf_upload()
+
+    response = client.post(
+        "/resume/analyze",
+        headers=auth_headers,
+        files=files,
+        data=data,
+    )
+
+    assert response.status_code == 200
+
+    other_response = client.get(
+        "/resume/statistics",
+        headers=other_auth_headers,
+    )
+
+    assert other_response.status_code == 200
+    assert other_response.json() == {
+        "total_resumes": 0,
+        "analyzed_resumes": 0,
+        "uploaded_resumes": 0,
+        "failed_resumes": 0,
+        "average_ats_score": None,
+    }
