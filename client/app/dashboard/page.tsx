@@ -40,6 +40,7 @@ import type {
   InterviewSessionStatus,
   InterviewStatistics,
   ResumeSummary,
+  ResumeStatistics,
   ResumeStatus,
   ResumeSort,
   SessionSummary,
@@ -121,16 +122,20 @@ function DashboardContent() {
   const [sessionSort, setSessionSort] =
     useState<InterviewSessionSort>("newest");
   const [sessionSearchInput, setSessionSearchInput] =
-  useState("");
+    useState("");
   const [sessionSearchQuery, setSessionSearchQuery] =
-  useState("");
+    useState("");
   const [sessions, setSessions] =
     useState<SessionSummary[] | null>(null);
   const [statistics, setStatistics] =
-  useState<InterviewStatistics | null>(null);
+    useState<InterviewStatistics | null>(null);
   const [isStatisticsLoading, setIsStatisticsLoading] =
-  useState(true);
+    useState(true);
   const [hasMoreResumes, setHasMoreResumes] = useState(false);
+  const [resumeStatistics, setResumeStatistics] =
+    useState<ResumeStatistics | null>(null);
+  const [isResumeStatisticsLoading,setIsResumeStatisticsLoading] = 
+    useState(true);
   const [hasMoreSessions, setHasMoreSessions] = useState(false);
   const [isLoadingMoreResumes, setIsLoadingMoreResumes] =
   useState(false);
@@ -235,6 +240,41 @@ useEffect(() => {
   }
 
   void loadStatistics();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadResumeStatistics(): Promise<void> {
+    setIsResumeStatisticsLoading(true);
+
+    try {
+      const result = await api.getResumeStatistics();
+
+      if (!cancelled) {
+        setResumeStatistics(result);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setResumeStatistics(null);
+        setError(
+          error instanceof ApiError
+            ? error.message
+            : "Unable to load resume insights.",
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setIsResumeStatisticsLoading(false);
+      }
+    }
+  }
+
+  void loadResumeStatistics();
 
   return () => {
     cancelled = true;
@@ -538,6 +578,72 @@ function handleClearResumeSearch(): void {
           </Link>
         </Button>
       </div>
+
+      <section
+  aria-labelledby="resume-insights-heading"
+  className="mb-8"
+>
+  <h2
+    id="resume-insights-heading"
+    className="mb-3 text-lg font-medium"
+  >
+    Resume insights
+  </h2>
+
+  {isResumeStatisticsLoading ? (
+    <p className="text-sm text-muted-foreground">
+      Loading resume insights…
+    </p>
+  ) : resumeStatistics ? (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Total resumes
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {resumeStatistics.total_resumes}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Analyzed
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {resumeStatistics.analyzed_resumes}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Failed analyses
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {resumeStatistics.failed_resumes}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Average ATS score
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {resumeStatistics.average_ats_score === null
+              ? "—"
+              : `${resumeStatistics.average_ats_score.toFixed(1)}/100`}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  ) : null}
+</section>
 
       <section
   aria-labelledby="progress-summary-heading"

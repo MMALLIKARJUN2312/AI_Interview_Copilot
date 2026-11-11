@@ -49,6 +49,14 @@ export interface ResumeAnalysisHistoryItem {
   created_at: string;
 }
 
+export interface ResumeStatistics {
+  total_resumes: number;
+  analyzed_resumes: number;
+  uploaded_resumes: number;
+  failed_resumes: number;
+  average_ats_score: number | null;
+}
+
 export type InterviewSessionStatus =
   | "pending"
   | "in_progress"

@@ -6,6 +6,7 @@ import type {
   ResumeAnalysisResponse,
   ResumeAnalysisHistoryItem,
   ResumeSummary,
+  ResumeStatistics,
   ResumeStatus,
   ResumeSort,
   RoundConfig,
@@ -468,6 +469,12 @@ async deleteAccount(currentPassword: string) {
       body: formData,
     });
   },
+
+  getResumeStatistics() {
+  return request<ResumeStatistics>(
+    "/resume/statistics",
+  );
+},
 
 listResumes(
   options: ResumeListOptions = {},
