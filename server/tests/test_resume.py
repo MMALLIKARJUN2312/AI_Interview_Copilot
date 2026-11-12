@@ -872,3 +872,126 @@ def test_get_resume_statistics_is_user_scoped(
         "failed_resumes": 0,
         "average_ats_score": None,
     }
+    
+def test_reanalyze_resume_for_new_target_role(
+    client,
+    auth_headers,
+    fake_ai,
+    db_engine,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    with Session(db_engine) as db:
+        resume = Resume(
+            user_id=1,
+            original_filename="profile.pdf",
+            stored_filename="profile.pdf",
+            mime_type="application/pdf",
+            file_size=10,
+            target_role="Backend Engineer",
+            job_description="Build backend APIs",
+            status=ResumeStatus.ANALYZED,
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+
+        db.add(
+            ResumeAnalysis(
+                resume_id=resume.id,
+                ats_score=80,
+                strengths=["Python"],
+                weaknesses=["Kubernetes"],
+                suggestions=["Add cloud experience"],
+                provider="fake",
+                model="fake-model",
+                processing_time_ms=1,
+                status=AnalysisStatus.SUCCESS,
+            )
+        )
+        db.commit()
+
+        resume_id = resume.id
+
+    response = client.post(
+        f"/resume/{resume_id}/reanalyze",
+        headers=auth_headers,
+        json={
+            "target_role": "Platform Engineer",
+            "job_description": (
+                "Build scalable internal developer platforms"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["target_role"] == (
+        "Platform Engineer"
+    )
+    assert response.json()["ats_score"] == 82
+
+    with Session(db_engine) as db:
+        updated_resume = db.get(
+            Resume,
+            resume_id,
+        )
+
+        assert updated_resume is not None
+        assert updated_resume.target_role == (
+            "Platform Engineer"
+        )
+        assert updated_resume.job_description == (
+            "Build scalable internal developer platforms"
+        )
+        assert updated_resume.status == (
+            ResumeStatus.ANALYZED
+        )
+
+        assert (
+            db.query(ResumeAnalysis)
+            .filter(
+                ResumeAnalysis.resume_id == resume_id,
+            )
+            .count()
+            == 2
+        )
+
+
+def test_reanalyze_resume_hides_other_users_resume(
+    client,
+    auth_headers,
+    other_auth_headers,
+    fake_ai,
+    db_engine,
+):
+    with Session(db_engine) as db:
+        resume = Resume(
+            user_id=1,
+            original_filename="private.pdf",
+            stored_filename="private.pdf",
+            mime_type="application/pdf",
+            file_size=10,
+            target_role="Backend Engineer",
+            status=ResumeStatus.ANALYZED,
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+        resume_id = resume.id
+
+    response = client.post(
+        f"/resume/{resume_id}/reanalyze",
+        headers=other_auth_headers,
+        json={
+            "target_role": "Platform Engineer",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume not found"

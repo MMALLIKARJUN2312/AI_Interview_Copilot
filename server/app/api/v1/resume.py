@@ -30,6 +30,8 @@ from app.models.resume_analysis import ResumeAnalysis, AnalysisStatus
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
 from app.schemas.resume import (
+    ResumeDetail,
+    ResumeReanalyzeRequest,
     ResumeStatisticsResponse,
     ResumeSummary,
 )
@@ -376,8 +378,143 @@ def list_resume_analysis_history(
         db,
         resume.id,
     )
+    
+@router.post(
+    "/{resume_id}/reanalyze",
+    response_model=ResumeAnalysisResponse,
+)
+@limiter.limit(
+    settings.RESUME_ANALYSIS_DAILY_LIMIT,
+    key_func=account_or_ip_key,
+)
+@limiter.limit("10/hour")
+async def reanalyze_resume(
+    request: Request,
+    resume_id: int,
+    payload: ResumeReanalyzeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    resume = resume_repository.get_by_id(
+        db,
+        resume_id,
+    )
 
-@router.get('/{resume_id}', response_model=ResumeSummary)
+    if (
+        resume is None
+        or resume.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Resume not found",
+        )
+
+    try:
+        storage = get_storage_backend()
+        contents = await storage.read(
+            resume.stored_filename,
+        )
+    except Exception as error:
+        logger.exception(
+            "Unable to read stored resume for reanalysis: "
+            "resume_id=%s user_id=%s",
+            resume.id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to access the uploaded resume",
+        ) from error
+
+    resume.target_role = payload.target_role
+    resume.job_description = payload.job_description
+
+    try:
+        resume_service = ResumeService()
+
+        extracted_text = resume_service.extract_text(
+            contents,
+        )
+
+        generation = resume_service.analyze_resume(
+            extracted_text,
+            resume.target_role,
+            resume.job_description,
+        )
+    except Exception as error:
+        logger.exception(
+            "Resume reanalysis failed: "
+            "resume_id=%s user_id=%s",
+            resume.id,
+            current_user.id,
+        )
+
+        resume_repository.mark_failed(resume)
+
+        resume_analysis_repository.create_analysis(
+            db,
+            ResumeAnalysis(
+                resume_id=resume.id,
+                ats_score=0,
+                strengths=[],
+                weaknesses=[],
+                suggestions=[],
+                provider="unknown",
+                model="unknown",
+                processing_time_ms=0,
+                status=AnalysisStatus.FAILED,
+                error_message=str(error)[:500],
+            ),
+        )
+        resume_repository.commit(db)
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Resume reanalysis could not be completed. "
+                "Please try again shortly."
+            ),
+        ) from error
+
+    result = generation.data
+
+    resume.extracted_text = extracted_text
+
+    analysis = ResumeAnalysis(
+        resume_id=resume.id,
+        ats_score=result.ats_score,
+        strengths=result.strengths,
+        weaknesses=result.weaknesses,
+        suggestions=result.suggestions,
+        provider=generation.provider,
+        model=generation.model,
+        processing_time_ms=generation.processing_time_ms,
+        status=AnalysisStatus.SUCCESS,
+    )
+
+    resume_analysis_repository.create_analysis(
+        db,
+        analysis,
+    )
+    resume_repository.mark_analyzed(resume)
+    resume_repository.commit(db)
+    resume_repository.refresh(db, analysis)
+
+    return ResumeAnalysisResponse(
+        resume_id=resume.id,
+        analysis_id=analysis.id,
+        target_role=resume.target_role,
+        ats_score=analysis.ats_score,
+        strengths=analysis.strengths,
+        weaknesses=analysis.weaknesses,
+        suggestions=analysis.suggestions,
+    )
+
+@router.get(
+    '/{resume_id}',
+    response_model=ResumeDetail,
+)
 def get_resume(
     resume_id : int,
     current_user : User = Depends(get_current_user),
