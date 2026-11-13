@@ -24,6 +24,11 @@ export interface ResumeSummary {
   created_at: string;
 }
 
+export interface ResumeDetail
+  extends ResumeSummary {
+  job_description: string | null;
+}
+
 export type ResumeSort =
   | "newest"
   | "oldest";

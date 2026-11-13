@@ -5,6 +5,7 @@ import type {
   InterviewStatistics,
   ResumeAnalysisResponse,
   ResumeAnalysisHistoryItem,
+  ResumeDetail,
   ResumeSummary,
   ResumeStatistics,
   ResumeStatus,
@@ -503,9 +504,11 @@ listResumes(
   );
 },
 
-  getResume(resumeId: number) {
-    return request<ResumeSummary>(`/resume/${resumeId}`);
-  },
+getResume(resumeId: number) {
+  return request<ResumeDetail>(
+    `/resume/${resumeId}`,
+  );
+},
 
   deleteResume(resumeId: number) {
   return request<{
@@ -534,6 +537,24 @@ listResumes(
     `/resume/${resumeId}/retry`,
     {
       method: "POST",
+    },
+  );
+},
+
+reanalyzeResume(payload: {
+  resumeId: number;
+  targetRole: string;
+  jobDescription?: string;
+}) {
+  return request<ResumeAnalysisResponse>(
+    `/resume/${payload.resumeId}/reanalyze`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        target_role: payload.targetRole,
+        job_description:
+          payload.jobDescription || null,
+      }),
     },
   );
 },

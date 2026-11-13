@@ -21,6 +21,8 @@ import { ScoreList } from "@/components/score-list";
 import { ScoreRing } from "@/components/score-ring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -37,7 +39,7 @@ import {
 import type {
   ResumeAnalysisResponse,
   ResumeAnalysisHistoryItem,
-  ResumeSummary,
+  ResumeDetail,
   RoundType,
 } from "@/lib/types";
 
@@ -89,7 +91,8 @@ function formatAnalysisAttemptDate(
 
 function ResumeDetail({ resumeId }: { resumeId: number }) {
   const router = useRouter();
-  const [resume, setResume] = useState<ResumeSummary | null>(null);
+  const [resume, setResume] =
+    useState<ResumeDetail | null>(null);
   const [analysis, setAnalysis] = useState<ResumeAnalysisResponse | null>(
     null,
   );
@@ -118,11 +121,25 @@ const [retryError, setRetryError] =
   useState<string | null>(null);
 const [isRetryingAnalysis, setIsRetryingAnalysis] =
   useState(false);
+const [targetRoleInput, setTargetRoleInput] =
+  useState("");
+const [jobDescriptionInput, setJobDescriptionInput] =
+  useState("");
+const [reanalyzeError, setReanalyzeError] =
+  useState<string | null>(null);
+const [isReanalyzing, setIsReanalyzing] =
+  useState(false);
 
 useEffect(() => {
     api
       .getResume(resumeId)
-      .then(setResume)
+      .then((result) => {
+        setResume(result);
+        setTargetRoleInput(result.target_role);
+        setJobDescriptionInput(
+          result.job_description ?? "",
+        );
+      })
       .catch(() => setLoadError("Unable to load this resume."));
 
     api
@@ -169,6 +186,64 @@ useEffect(() => {
       setIsStarting(false);
     }
   }
+
+  async function handleReanalyze(
+  event: FormEvent<HTMLFormElement>,
+): Promise<void> {
+  event.preventDefault();
+
+  const normalizedTargetRole =
+    targetRoleInput.trim();
+
+  if (
+    normalizedTargetRole.length < 2 ||
+    normalizedTargetRole.length > 150
+  ) {
+    setReanalyzeError(
+      "Target role must contain between 2 and 150 characters.",
+    );
+    return;
+  }
+
+  setReanalyzeError(null);
+  setIsReanalyzing(true);
+
+  try {
+    const result = await api.reanalyzeResume({
+      resumeId,
+      targetRole: normalizedTargetRole,
+      jobDescription:
+        jobDescriptionInput.trim() || undefined,
+    });
+
+    setAnalysis(result);
+
+    setResume((currentResume) =>
+      currentResume
+        ? {
+            ...currentResume,
+            target_role: normalizedTargetRole,
+            job_description:
+              jobDescriptionInput.trim() || null,
+            status: "analyzed",
+          }
+        : currentResume,
+    );
+
+    void api
+      .listResumeAnalysisHistory(resumeId)
+      .then(setAnalysisHistory)
+      .catch(() => {});
+  } catch (error) {
+    setReanalyzeError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to reanalyze this resume. Please try again.",
+    );
+  } finally {
+    setIsReanalyzing(false);
+  }
+}
 
   async function handleRetryAnalysis(): Promise<void> {
   setRetryError(null);
@@ -451,6 +526,89 @@ useEffect(() => {
         </Card>
       )}
 
+      <Card className="animate-fade-in-up mb-6">
+  <CardHeader>
+    <CardTitle>Tailor this analysis</CardTitle>
+    <CardDescription>
+      Reuse this uploaded resume for a different role or
+      job description. A new analysis attempt is saved.
+    </CardDescription>
+  </CardHeader>
+
+  <CardContent>
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={handleReanalyze}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="reanalyze-target-role">
+          Target role
+        </Label>
+
+        <Input
+          id="reanalyze-target-role"
+          value={targetRoleInput}
+          minLength={2}
+          maxLength={150}
+          required
+          disabled={isReanalyzing}
+          onChange={(event) => {
+            setTargetRoleInput(event.target.value);
+            setReanalyzeError(null);
+          }}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="reanalyze-job-description">
+          Job description
+          <span className="ml-1 text-muted-foreground">
+            (optional)
+          </span>
+        </Label>
+
+        <Textarea
+          id="reanalyze-job-description"
+          value={jobDescriptionInput}
+          maxLength={10_000}
+          disabled={isReanalyzing}
+          placeholder="Paste the key responsibilities and requirements for this role."
+          onChange={(event) => {
+            setJobDescriptionInput(
+              event.target.value,
+            );
+            setReanalyzeError(null);
+          }}
+        />
+      </div>
+
+      {reanalyzeError && (
+        <p
+          role="alert"
+          className="text-sm text-destructive"
+        >
+          {reanalyzeError}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        className="w-fit"
+        disabled={
+          isReanalyzing ||
+          isDeleting ||
+          targetRoleInput.trim().length < 2
+        }
+      >
+        <RotateCcw className="size-4" />
+        {isReanalyzing
+          ? "Analyzing resume…"
+          : "Reanalyze for this role"}
+      </Button>
+    </form>
+  </CardContent>
+</Card>
+
       {resume.status === "analyzed" && (
         <Card className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
           <CardHeader>
@@ -517,7 +675,7 @@ useEffect(() => {
             )}
             <Button
               onClick={handleStartInterview}
-              disabled={isStarting}
+              disabled={isStarting || isReanalyzing}
               className="w-fit"
             >
               {isStarting ? "Starting…" : "Start interview"}
