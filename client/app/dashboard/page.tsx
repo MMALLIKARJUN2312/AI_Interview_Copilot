@@ -177,6 +177,9 @@ useEffect(() => {
         limit: DASHBOARD_PAGE_SIZE,
         offset: 0,
         sort: resumeSort,
+        ...(resumeStatusFilter === "all"
+          ? {}
+          : { status: resumeStatusFilter }),
         ...(resumeSearchQuery
           ? { search: resumeSearchQuery }
           : {}),
