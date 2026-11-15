@@ -35,6 +35,7 @@ from app.schemas.interview import (
     QuestionWithAnswerResponse,
     AnswerResponse,
     FeedbackResponse,
+    InterviewProgressPointResponse,
     InterviewStatisticsResponse,
     RoadmapResponse,
     RunCodeRequest,
@@ -320,7 +321,35 @@ def get_interview_statistics(
     )
 
     return InterviewStatisticsResponse(**statistics)    
-    
+   
+@router.get(
+    "/progress",
+    response_model=list[InterviewProgressPointResponse],
+)
+def get_interview_progress(
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=20,
+    ),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sessions = (
+        session_repository.get_user_score_progress(
+            db,
+            current_user.id,
+            limit=limit,
+        )
+    )
+
+    return [
+        InterviewProgressPointResponse.model_validate(
+            session
+        )
+        for session in sessions
+    ]   
+ 
 @router.delete("/{session_id}")
 @limiter.limit(
     "10/hour",

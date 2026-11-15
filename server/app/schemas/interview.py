@@ -175,3 +175,13 @@ class InterviewStatisticsResponse(BaseModel):
     in_progress_sessions: int
     completed_sessions: int
     average_score: float | None
+    
+class InterviewProgressPointResponse(BaseModel):
+    id: int
+    target_role: str
+    overall_score: int
+    completed_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }

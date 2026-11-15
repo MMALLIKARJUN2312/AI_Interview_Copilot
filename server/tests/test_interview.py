@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -1278,3 +1279,123 @@ def test_other_user_cannot_retry_interview(
     )
 
     assert retry_response.status_code == 404
+    
+def test_get_interview_progress_returns_recent_scores_chronologically(
+    client,
+    auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    resume_id = uploaded_resume["resume_id"]
+    base_time = datetime(
+        2026,
+        1,
+        1,
+        tzinfo=timezone.utc,
+    )
+    completed_ids = []
+
+    with Session(db_engine) as db:
+        for index, score in enumerate(
+            [60, 75, 90]
+        ):
+            session = InterviewSession(
+                user_id=1,
+                resume_id=resume_id,
+                target_role="Backend Engineer",
+                status=(
+                    InterviewSessionStatus.COMPLETED
+                ),
+                total_questions=3,
+                current_index=3,
+                overall_score=score,
+                completed_at=(
+                    base_time
+                    + timedelta(days=index)
+                ),
+            )
+            db.add(session)
+            db.flush()
+            completed_ids.append(session.id)
+
+        db.add(
+            InterviewSession(
+                user_id=1,
+                resume_id=resume_id,
+                target_role="Backend Engineer",
+                status=(
+                    InterviewSessionStatus.IN_PROGRESS
+                ),
+                total_questions=3,
+                current_index=1,
+                overall_score=None,
+            )
+        )
+        db.commit()
+
+    response = client.get(
+        "/interview/progress?limit=2",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    progress = response.json()
+
+    assert [
+        point["id"]
+        for point in progress
+    ] == completed_ids[-2:]
+
+    assert [
+        point["overall_score"]
+        for point in progress
+    ] == [75, 90]
+
+
+def test_get_interview_progress_is_user_scoped(
+    client,
+    auth_headers,
+    other_auth_headers,
+    uploaded_resume,
+    db_engine,
+):
+    with Session(db_engine) as db:
+        db.add(
+            InterviewSession(
+                user_id=1,
+                resume_id=uploaded_resume["resume_id"],
+                target_role="Backend Engineer",
+                status=(
+                    InterviewSessionStatus.COMPLETED
+                ),
+                total_questions=3,
+                current_index=3,
+                overall_score=85,
+                completed_at=datetime.now(
+                    timezone.utc
+                ),
+            )
+        )
+        db.commit()
+
+    response = client.get(
+        "/interview/progress",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_interview_progress_rejects_invalid_limit(
+    client,
+    auth_headers,
+):
+    for limit in [0, 21]:
+        response = client.get(
+            f"/interview/progress?limit={limit}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 422

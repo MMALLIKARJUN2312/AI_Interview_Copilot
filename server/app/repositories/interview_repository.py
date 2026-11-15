@@ -155,6 +155,38 @@ class InterviewSessionRepository(BaseRepository[InterviewSession]):
             "average_score": average_score,
         }
 
+    def get_user_score_progress(
+        self,
+        db: Session,
+        user_id: int,
+        limit: int = 10,
+    ) -> list[InterviewSession]:
+        statement = (
+            select(InterviewSession)
+            .where(
+                InterviewSession.user_id == user_id,
+                InterviewSession.status
+                == InterviewSessionStatus.COMPLETED,
+                InterviewSession.overall_score.is_not(None),
+                InterviewSession.completed_at.is_not(None),
+            )
+            .order_by(
+                InterviewSession.completed_at.desc(),
+                InterviewSession.id.desc(),
+            )
+            .limit(limit)
+        )
+
+        sessions = list(
+            db.execute(statement).scalars().all()
+        )
+
+        # The database selects the latest attempts first.
+        # Reverse them for chronological chart display.
+        sessions.reverse()
+
+        return sessions
+
     def get_resume_sessions(self, db : Session, resume_id : int) -> list[InterviewSession]:
         stmt = (
             select(InterviewSession)
