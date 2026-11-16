@@ -10,6 +10,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  TrendingUp,
   UserRound,
   X,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type {
+  InterviewProgressPoint,
   InterviewSessionSort,
   InterviewSessionStatus,
   InterviewStatistics,
@@ -97,6 +99,24 @@ function EmptyState({
   );
 }
 
+function formatProgressDate(
+  value: string,
+): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+    },
+  );
+}
+
 function DashboardContent() {
   const router = useRouter();
   const {
@@ -131,6 +151,10 @@ function DashboardContent() {
     useState<InterviewStatistics | null>(null);
   const [isStatisticsLoading, setIsStatisticsLoading] =
     useState(true);
+  const [interviewProgress, setInterviewProgress] =
+    useState<InterviewProgressPoint[] | null>(
+      null,
+    );
   const [hasMoreResumes, setHasMoreResumes] = useState(false);
   const [resumeStatistics, setResumeStatistics] =
     useState<ResumeStatistics | null>(null);
@@ -243,6 +267,31 @@ useEffect(() => {
   }
 
   void loadStatistics();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadInterviewProgress(): Promise<void> {
+    try {
+      const result =
+        await api.getInterviewProgress(10);
+
+      if (!cancelled) {
+        setInterviewProgress(result);
+      }
+    } catch {
+      if (!cancelled) {
+        setInterviewProgress([]);
+      }
+    }
+  }
+
+  void loadInterviewProgress();
 
   return () => {
     cancelled = true;
@@ -649,70 +698,158 @@ function handleClearResumeSearch(): void {
 </section>
 
       <section
-  aria-labelledby="progress-summary-heading"
-  className="mb-8"
->
-  <h2
-    id="progress-summary-heading"
-    className="sr-only"
-  >
-    Interview progress summary
-  </h2>
+        aria-labelledby="progress-summary-heading"
+        className="mb-8"
+      >
+        <h2
+          id="progress-summary-heading"
+          className="sr-only"
+        >
+          Interview progress summary
+        </h2>
 
-  {isStatisticsLoading ? (
-    <p className="text-sm text-muted-foreground">
-      Loading progress summary…
-    </p>
-  ) : statistics ? (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardContent className="p-4">
+        {isStatisticsLoading ? (
           <p className="text-sm text-muted-foreground">
-            Total interviews
+            Loading progress summary…
           </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {statistics.total_sessions}
-          </p>
-        </CardContent>
-      </Card>
+        ) : statistics ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Total interviews
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {statistics.total_sessions}
+                </p>
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">
-            In progress
-          </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {statistics.in_progress_sessions}
-          </p>
-        </CardContent>
-      </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  In progress
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {statistics.in_progress_sessions}
+                </p>
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">
-            Completed
-          </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {statistics.completed_sessions}
-          </p>
-        </CardContent>
-      </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Completed
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {statistics.completed_sessions}
+                </p>
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">
-            Average score
-          </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {statistics.average_score === null
-              ? "—"
-              : `${statistics.average_score.toFixed(1)}/100`}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  ) : null}
-</section>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Average score
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {statistics.average_score === null
+                    ? "—"
+                    : `${statistics.average_score.toFixed(1)}/100`}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+      </section>
+
+      <section
+        aria-labelledby="interview-trend-heading"
+        className="mb-8"
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle
+              id="interview-trend-heading"
+              className="flex items-center gap-2 text-base"
+            >
+              <TrendingUp className="size-4" />
+              Interview score trend
+            </CardTitle>
+
+            <CardDescription>
+              Your latest completed interview scores,
+              shown from oldest to newest.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            {interviewProgress === null ? (
+              <p className="text-sm text-muted-foreground">
+                Loading score trend…
+              </p>
+            ) : interviewProgress.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Complete at least one interview to start
+                tracking your score trend.
+              </p>
+            ) : (
+              <ol
+                className="space-y-4"
+                aria-label="Recent completed interview scores"
+              >
+                {interviewProgress.map((point) => (
+                  <li key={point.id}>
+                    <Link
+                      href={`/interview/${point.id}`}
+                      className="block rounded-lg outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {point.target_role}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatProgressDate(
+                              point.completed_at,
+                            )}
+                          </p>
+                        </div>
+
+                        <p className="text-sm font-semibold">
+                          {point.overall_score}/100
+                        </p>
+                      </div>
+
+                      <div
+                        className="h-2 overflow-hidden rounded-full bg-muted"
+                        role="progressbar"
+                        aria-label={`${point.target_role} score`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={point.overall_score}
+                      >
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand-from),var(--brand-to))]"
+                          style={{
+                            width: `${Math.max(
+                              0,
+                              Math.min(
+                                100,
+                                point.overall_score,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {error && <p className="mb-6 text-sm text-destructive">{error}</p>}
 

@@ -93,6 +93,13 @@ export interface InterviewStatistics {
   average_score: number | null;
 }
 
+export interface InterviewProgressPoint {
+  id: number;
+  target_role: string;
+  overall_score: number;
+  completed_at: string;
+}
+
 export type RoundType = "dsa_coding" | "machine_coding" | "general";
 
 export type CodeLanguage = "python" | "javascript" | "java" | "cpp";

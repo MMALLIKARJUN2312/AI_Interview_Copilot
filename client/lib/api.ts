@@ -1,5 +1,6 @@
 import type {
   CompleteInterviewResponse,
+  InterviewProgressPoint,
   InterviewSessionSort,
   InterviewSessionStatus,
   InterviewStatistics,
@@ -642,6 +643,16 @@ reanalyzeResume(payload: {
     getInterviewStatistics() {
     return request<InterviewStatistics>(
       "/interview/statistics",
+    );
+  },
+
+  getInterviewProgress(limit = 10) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+  });
+
+  return request<InterviewProgressPoint[]>(
+    `/interview/progress?${params.toString()}`,
     );
   },
 
