@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useCallback, useState } from "react";
 
 import { CodeEditor, STARTER_TEMPLATES } from "@/components/code-editor";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -46,6 +46,12 @@ import {
   buildInterviewReport,
   createInterviewReportFilename,
 } from "@/lib/interview-report";
+import {
+  clearInterviewDraft,
+  clearInterviewSessionDrafts,
+  loadInterviewDraft,
+  saveInterviewDraft,
+} from "@/lib/interview-draft";
 
 type Phase =
   | "loading"
@@ -217,6 +223,7 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [answerText, setAnswerText] = useState("");
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState<CodeLanguage>("python");
+  const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const [runResults, setRunResults] = useState<ExecutionResult[] | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -229,15 +236,33 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const [roadmap, setRoadmap] = useState<RoadmapResponse | null>(null);
 
-  function loadQuestion(question: QuestionResponse) {
+const loadQuestion = useCallback(
+  (question: QuestionResponse): void => {
+    const draft = loadInterviewDraft(sessionId, question.id);
+
     setCurrentQuestion(question);
-    setAnswerText("");
     setRunResults(null);
+
     if (isCodingRound(question)) {
+      const restoredLanguage = draft?.language ?? "python";
+
+      setAnswerText("");
+      setLanguage(restoredLanguage);
+      setCode(
+        draft?.code ?? STARTER_TEMPLATES[restoredLanguage],
+      );
+    } else {
+      setCode("");
       setLanguage("python");
-      setCode(STARTER_TEMPLATES.python);
+      setAnswerText(draft?.answerText ?? "");
     }
-  }
+
+    setDraftStatus(
+      draft ? "Draft restored from this browser tab." : null,
+    );
+  },
+  [sessionId],
+);
 
   useEffect(() => {
     api
@@ -280,7 +305,56 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         setError("Unable to load this interview session.");
         setPhase("error");
       });
-  }, [sessionId]);
+  }, [sessionId, loadQuestion]);
+
+  useEffect(() => {
+  if (
+    phase !== "answering" ||
+    currentQuestion === null
+  ) {
+    return;
+  }
+
+  const timeoutId = window.setTimeout(
+    () => {
+      const saved = saveInterviewDraft(
+        sessionId,
+        currentQuestion.id,
+        {
+          answerText: isCodingRound(
+            currentQuestion,
+          )
+            ? ""
+            : answerText,
+          code: isCodingRound(
+            currentQuestion,
+          )
+            ? code
+            : "",
+          language,
+        },
+      );
+
+      setDraftStatus(
+        saved
+          ? "Draft saved in this browser tab."
+          : null,
+      );
+    },
+    400,
+  );
+
+  return () => {
+    window.clearTimeout(timeoutId);
+  };
+}, [
+  answerText,
+  code,
+  currentQuestion,
+  language,
+  phase,
+  sessionId,
+]);
 
   async function handleRunCode() {
     if (!currentQuestion || !code.trim()) return;
@@ -322,6 +396,12 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
         questionId: currentQuestion.id,
         ...(isCoding ? { code, language } : { answerText }),
       });
+
+      clearInterviewDraft(
+        sessionId,
+        currentQuestion.id,
+      );
+      setDraftStatus(null);
 
       setLastAnswer(result.answer);
       setQuestions((currentQuestions) =>
@@ -367,6 +447,8 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
 
     try {
       const result = await api.completeInterview(sessionId);
+      clearInterviewSessionDrafts(sessionId);
+      setDraftStatus(null);
       setSession(result.session);
       setFeedback(result.feedback);
       setRoadmap(result.roadmap);
@@ -398,7 +480,8 @@ function InterviewFlow({ sessionId }: { sessionId: number }) {
   try {
     const updatedSession =
       await api.abandonInterview(sessionId);
-
+      clearInterviewSessionDrafts(sessionId);
+      setDraftStatus(null);
     setSession(updatedSession);
     setPhase("abandoned");
   } catch (err) {
@@ -492,6 +575,7 @@ async function handleRetryInterview() {
 
     try {
       await api.deleteInterview(sessionId);
+      clearInterviewSessionDrafts(sessionId);
       router.replace("/dashboard");
       router.refresh();
     } catch (err) {
@@ -818,6 +902,14 @@ async function handleRetryInterview() {
                   onLanguageChange={setLanguage}
                   onCodeChange={setCode}
                 />
+                {draftStatus && (
+                  <p
+                    role="status"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {draftStatus}
+                  </p>
+                )}
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -846,6 +938,14 @@ async function handleRetryInterview() {
                   value={answerText}
                   onChange={(event) => setAnswerText(event.target.value)}
                 />
+                {draftStatus && (
+                  <p
+                    role="status"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {draftStatus}
+                  </p>
+                )}
                 <Button
                   onClick={handleSubmitAnswer}
                   disabled={isSubmitting || !answerText.trim()}
