@@ -18,14 +18,16 @@ def _pdf_upload(
 
     return files, data
 
-class FakeStorage:
-    def __init__(
-        self,
-        fail_delete: bool = False,
-    ):
-        self.saved_keys: list[str] = []
-        self.deleted_keys: list[str] = []
-        self.fail_delete = fail_delete
+def __init__(
+    self,
+    fail_delete: bool = False,
+    fail_read: bool = False,
+):
+    self.saved_keys: list[str] = []
+    self.read_keys: list[str] = []
+    self.deleted_keys: list[str] = []
+    self.fail_delete = fail_delete
+    self.fail_read = fail_read
 
     async def save(
         self,
@@ -38,6 +40,13 @@ class FakeStorage:
         self,
         key: str,
     ) -> bytes:
+        self.read_keys.append(key)
+
+        if self.fail_read:
+            raise RuntimeError(
+                "Storage unavailable"
+            )
+
         return b"%PDF-1.4 fake"
 
     async def delete(
@@ -995,3 +1004,94 @@ def test_reanalyze_resume_hides_other_users_resume(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume not found"
+    
+def test_download_own_resume_file(
+    client,
+    auth_headers,
+    uploaded_resume,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    resume_id = uploaded_resume["resume_id"]
+
+    response = client.get(
+        f"/resume/{resume_id}/file",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content.startswith(
+        b"%PDF-1.4"
+    )
+    assert response.headers["content-type"] == (
+        "application/pdf"
+    )
+    assert (
+        "attachment"
+        in response.headers["content-disposition"]
+    )
+    assert (
+        "resume.pdf"
+        in response.headers["content-disposition"]
+    )
+    assert response.headers["cache-control"] == (
+        "private, no-store"
+    )
+    assert storage.read_keys != []
+
+
+def test_download_resume_hides_other_users_file(
+    client,
+    uploaded_resume,
+    other_auth_headers,
+    monkeypatch,
+):
+    storage = FakeStorage()
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    response = client.get(
+        f"/resume/{uploaded_resume['resume_id']}/file",
+        headers=other_auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Resume not found"
+    )
+    assert storage.read_keys == []
+
+
+def test_download_resume_handles_storage_failure(
+    client,
+    auth_headers,
+    uploaded_resume,
+    monkeypatch,
+):
+    storage = FakeStorage(
+        fail_read=True,
+    )
+
+    monkeypatch.setattr(
+        "app.api.v1.resume.get_storage_backend",
+        lambda: storage,
+    )
+
+    response = client.get(
+        f"/resume/{uploaded_resume['resume_id']}/file",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Unable to download the resume"
+    )

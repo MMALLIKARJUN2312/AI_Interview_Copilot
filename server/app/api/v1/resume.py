@@ -13,6 +13,10 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from typing import Literal
 
+from urllib.parse import quote
+
+from fastapi.responses import Response
+
 from app.services.resume_service import ResumeService
 from app.services.storage import get_storage_backend
 from app.core.constants import (MAX_RESUME_SIZE, ALLOWED_RESUME_TYPES, PDF_MAGIC_BYTES)
@@ -509,6 +513,70 @@ async def reanalyze_resume(
         strengths=analysis.strengths,
         weaknesses=analysis.weaknesses,
         suggestions=analysis.suggestions,
+    )
+
+@router.get(
+    "/{resume_id}/file",
+    response_class=Response,
+)
+@limiter.limit(
+    "30/hour",
+    key_func=account_or_ip_key,
+)
+async def download_resume_file(
+    request: Request,
+    resume_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    resume = resume_repository.get_by_id(
+        db,
+        resume_id,
+    )
+
+    if (
+        resume is None
+        or resume.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Resume not found",
+        )
+
+    try:
+        storage = get_storage_backend()
+        contents = await storage.read(
+            resume.stored_filename,
+        )
+    except Exception as error:
+        logger.exception(
+            "Resume download failed: "
+            "resume_id=%s user_id=%s",
+            resume.id,
+            current_user.id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to download the resume",
+        ) from error
+
+    encoded_filename = quote(
+        resume.original_filename,
+        safe="",
+    )
+
+    return Response(
+        content=contents,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f"filename*=UTF-8''{encoded_filename}"
+            ),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 @router.get(
