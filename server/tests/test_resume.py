@@ -18,46 +18,30 @@ def _pdf_upload(
 
     return files, data
 
-def __init__(
-    self,
-    fail_delete: bool = False,
-    fail_read: bool = False,
-):
-    self.saved_keys: list[str] = []
-    self.read_keys: list[str] = []
-    self.deleted_keys: list[str] = []
-    self.fail_delete = fail_delete
-    self.fail_read = fail_read
-
-    async def save(
+class FakeStorage:
+    def __init__(
         self,
-        key: str,
-        contents: bytes,
-    ) -> None:
+        fail_delete: bool = False,
+        fail_read: bool = False,
+    ):
+        self.saved_keys: list[str] = []
+        self.read_keys: list[str] = []
+        self.deleted_keys: list[str] = []
+        self.fail_delete = fail_delete
+        self.fail_read = fail_read
+
+    async def save(self, key: str, contents: bytes) -> None:
         self.saved_keys.append(key)
 
-    async def read(
-        self,
-        key: str,
-    ) -> bytes:
+    async def read(self, key: str) -> bytes:
         self.read_keys.append(key)
-
         if self.fail_read:
-            raise RuntimeError(
-                "Storage unavailable"
-            )
-
+            raise RuntimeError("Storage unavailable")
         return b"%PDF-1.4 fake"
 
-    async def delete(
-        self,
-        key: str,
-    ) -> None:
+    async def delete(self, key: str) -> None:
         if self.fail_delete:
-            raise RuntimeError(
-                "Storage unavailable"
-            )
-
+            raise RuntimeError("Storage unavailable")
         self.deleted_keys.append(key)
 
 def test_upload_requires_auth(client, fake_ai):
