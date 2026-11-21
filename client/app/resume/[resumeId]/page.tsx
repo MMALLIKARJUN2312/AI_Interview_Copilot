@@ -111,24 +111,30 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
   );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [
+    isDownloadingResume,
+    setIsDownloadingResume,
+  ] = useState(false);
+  const [downloadError, setDownloadError] =
+    useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] =
   useState("");
-const [deleteError, setDeleteError] =
-  useState<string | null>(null);
-const [isDeleting, setIsDeleting] =
-  useState(false);
-const [retryError, setRetryError] =
-  useState<string | null>(null);
-const [isRetryingAnalysis, setIsRetryingAnalysis] =
-  useState(false);
-const [targetRoleInput, setTargetRoleInput] =
-  useState("");
-const [jobDescriptionInput, setJobDescriptionInput] =
-  useState("");
-const [reanalyzeError, setReanalyzeError] =
-  useState<string | null>(null);
-const [isReanalyzing, setIsReanalyzing] =
-  useState(false);
+  const [deleteError, setDeleteError] =
+    useState<string | null>(null);
+  const [isDeleting, setIsDeleting] =
+    useState(false);
+  const [retryError, setRetryError] =
+    useState<string | null>(null);
+  const [isRetryingAnalysis, setIsRetryingAnalysis] =
+    useState(false);
+  const [targetRoleInput, setTargetRoleInput] =
+    useState("");
+  const [jobDescriptionInput, setJobDescriptionInput] =
+    useState("");
+  const [reanalyzeError, setReanalyzeError] =
+    useState<string | null>(null);
+  const [isReanalyzing, setIsReanalyzing] =
+    useState(false);
 
 useEffect(() => {
     api
@@ -280,6 +286,46 @@ useEffect(() => {
   }
 }
 
+async function handleDownloadResume(): Promise<void> {
+  if (!resume) {
+    return;
+  }
+
+  setDownloadError(null);
+  setIsDownloadingResume(true);
+
+  try {
+    const file = await api.downloadResumeFile(
+      resumeId,
+    );
+
+    const downloadUrl =
+      URL.createObjectURL(file);
+    const downloadLink =
+      document.createElement("a");
+
+    downloadLink.href = downloadUrl;
+    downloadLink.download =
+      resume.original_filename;
+
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(downloadUrl);
+    }, 0);
+  } catch (error) {
+    setDownloadError(
+      error instanceof ApiError
+        ? error.message
+        : "Unable to download this resume.",
+    );
+  } finally {
+    setIsDownloadingResume(false);
+  }
+}
+
   function handleDownloadReport(): void {
   if (!resume || !analysis) {
     return;
@@ -368,17 +414,42 @@ useEffect(() => {
             {resume.original_filename}
           </p>
         </div>
-        <Badge
-          variant={
-            resume.status === "analyzed"
-              ? "success"
-              : resume.status === "failed"
-                ? "destructive"
-                : "secondary"
-          }
-        >
-          {resume.status}
-        </Badge>
+        {downloadError && (
+          <p
+            role="alert"
+            className="mb-6 text-sm text-destructive"
+          >
+            {downloadError}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isDownloadingResume}
+            onClick={() =>
+              void handleDownloadResume()
+            }
+          >
+            <Download className="size-4" />
+            {isDownloadingResume
+              ? "Downloading…"
+              : "Download PDF"}
+          </Button>
+
+          <Badge
+            variant={
+              resume.status === "analyzed"
+                ? "success"
+                : resume.status === "failed"
+                  ? "destructive"
+                  : "secondary"
+            }
+          >
+            {resume.status}
+          </Badge>
+        </div>
       </div>
 
       {resume.status === "failed" && (

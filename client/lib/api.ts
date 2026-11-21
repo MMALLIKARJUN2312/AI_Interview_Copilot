@@ -328,6 +328,54 @@ throw createApiError(response, message);
   return (await response.json()) as T;
 }
 
+async function requestBlob(
+  path: string,
+): Promise<Blob> {
+  let response = await doFetch(
+    path,
+    {
+      method: "GET",
+    },
+  );
+
+  if (response.status === 401) {
+    const newAccessToken =
+      await refreshAccessToken();
+
+    if (newAccessToken) {
+      response = await doFetch(
+        path,
+        {
+          method: "GET",
+        },
+      );
+    } else {
+      clearToken();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new Event(AUTH_EXPIRED_EVENT),
+        );
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const message = await getErrorMessage(
+      response,
+      `Request failed with status ${response.status}`,
+    );
+
+    throw createApiError(
+      response,
+      message,
+    );
+  }
+
+  return response.blob();
+}
+
+
 function createPaginationQuery(
   options: PaginationOptions = {},
 ): string {
@@ -508,6 +556,12 @@ listResumes(
 getResume(resumeId: number) {
   return request<ResumeDetail>(
     `/resume/${resumeId}`,
+  );
+},
+
+downloadResumeFile(resumeId: number) {
+  return requestBlob(
+    `/resume/${resumeId}/file`,
   );
 },
 
