@@ -96,10 +96,19 @@ function ResumeDetail({ resumeId }: { resumeId: number }) {
   const [analysis, setAnalysis] = useState<ResumeAnalysisResponse | null>(
     null,
   );
-  const [analysisHistory, setAnalysisHistory] =
-    useState<ResumeAnalysisHistoryItem[] | null>(
-      null,
-    );
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyResult, setHistoryResult] = useState<{
+    revision: number;
+    attempts: ResumeAnalysisHistoryItem[] | null;
+  } | null>(null);
+
+  const isHistoryLoading = historyResult?.revision !== historyRevision;
+  const analysisHistory = historyResult?.attempts ?? null;
+
+  function refreshAnalysisHistory(): void {
+    setHistoryRevision((revision) => revision + 1);
+  }
+
   const [loadError, setLoadError] = useState<string | null>(null);
   const [roundState, setRoundState] = useState(() =>
     Object.fromEntries(
@@ -156,12 +165,28 @@ useEffect(() => {
           setLoadError("Unable to load the analysis for this resume.");
         }
       });
-
-    api
-      .listResumeAnalysisHistory(resumeId)
-      .then(setAnalysisHistory)
-      .catch(() => setAnalysisHistory([]));
   }, [resumeId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    void api.listResumeAnalysisHistory(resumeId).then(
+      (attempts) => {
+        if (!ignore) {
+          setHistoryResult({ revision: historyRevision, attempts });
+        }
+      },
+      () => {
+        if (!ignore) {
+          setHistoryResult({ revision: historyRevision, attempts: null });
+        }
+      },
+    );
+
+    return () => {
+      ignore = true;
+    };
+  }, [resumeId, historyRevision]);
 
   async function handleStartInterview() {
     setStartError(null);
@@ -235,19 +260,9 @@ useEffect(() => {
           }
         : currentResume,
     );
-
-    void api
-      .listResumeAnalysisHistory(resumeId)
-      .then(setAnalysisHistory)
-      .catch(() => {});
-  } catch (error) {
-    setReanalyzeError(
-      error instanceof ApiError
-        ? error.message
-        : "Unable to reanalyze this resume. Please try again.",
-    );
-  } finally {
+    } finally {
     setIsReanalyzing(false);
+    refreshAnalysisHistory();
   }
 }
 
@@ -262,11 +277,6 @@ useEffect(() => {
 
     setAnalysis(result);
 
-    void api
-      .listResumeAnalysisHistory(resumeId)
-      .then(setAnalysisHistory)
-      .catch(() => {});
-
     setResume((currentResume) =>
       currentResume
         ? {
@@ -275,14 +285,9 @@ useEffect(() => {
           }
         : currentResume,
     );
-  } catch (error) {
-    setRetryError(
-      error instanceof ApiError
-        ? error.message
-        : "Unable to retry the analysis. Please try again.",
-    );
   } finally {
     setIsRetryingAnalysis(false);
+    refreshAnalysisHistory();
   }
 }
 
@@ -537,7 +542,6 @@ async function handleDownloadResume(): Promise<void> {
         </Card>
       )}
 
-      {analysisHistory && analysisHistory.length > 0 && (
         <Card className="animate-fade-in-up mb-6">
           <CardHeader>
             <CardTitle>Analysis attempts</CardTitle>
@@ -548,6 +552,30 @@ async function handleDownloadResume(): Promise<void> {
           </CardHeader>
 
           <CardContent>
+            {isHistoryLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Loading analysis attempts…
+            </p>
+          ) : analysisHistory === null ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert" className="text-sm text-destructive">
+                Unable to load analysis attempts.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={refreshAnalysisHistory}
+              >
+                Reload history
+              </Button>
+            </div>
+          ) : analysisHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No analysis attempts recorded yet.
+            </p>
+          ) : null}
+          {!isHistoryLoading && analysisHistory && analysisHistory.length > 0 && (
             <ol className="space-y-3">
               {analysisHistory.map((attempt, index) => (
                 <li
@@ -593,9 +621,9 @@ async function handleDownloadResume(): Promise<void> {
                 </li>
               ))}
             </ol>
+          )}
           </CardContent>
         </Card>
-      )}
 
       <Card className="animate-fade-in-up mb-6">
   <CardHeader>
@@ -845,7 +873,7 @@ export default function ResumeDetailPage({
 
   return (
     <ProtectedRoute>
-      <ResumeDetail resumeId={Number(resumeId)} />
+      <ResumeDetail key={resumeId} resumeId={Number(resumeId)} />
     </ProtectedRoute>
   );
 }
