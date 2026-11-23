@@ -50,7 +50,6 @@ export interface ResumeAnalysisHistoryItem {
   provider: string;
   model: string;
   processing_time_ms: number;
-  error_message: string | null;
   created_at: string;
 }
 

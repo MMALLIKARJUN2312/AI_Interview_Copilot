@@ -605,12 +605,11 @@ async function handleDownloadResume(): Promise<void> {
                       )}
                     </p>
 
-                    {attempt.status === "failed" &&
-                      attempt.error_message && (
-                        <p className="mt-2 text-sm text-destructive">
-                          {attempt.error_message}
-                        </p>
-                      )}
+                    {attempt.status === "failed" && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        This attempt did not produce a resume analysis.
+                      </p>
+                    )}
                   </div>
 
                   {attempt.status === "success" && (
