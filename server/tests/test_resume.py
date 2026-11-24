@@ -752,9 +752,7 @@ def test_list_resume_analysis_history(
 
     assert len(history) == 2
     assert history[0]["status"] == "failed"
-    assert history[0]["error_message"] == (
-        "Temporary provider failure"
-    )
+    assert "error_message" not in history[0]
     assert history[1]["status"] == "success"
     assert history[1]["ats_score"] == 82
 

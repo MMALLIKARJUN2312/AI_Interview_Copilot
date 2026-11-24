@@ -17,7 +17,6 @@ class ResumeAnalysisHistoryResponse(BaseModel):
     provider: str
     model: str
     processing_time_ms: int
-    error_message: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
