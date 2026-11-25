@@ -525,7 +525,6 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
 - Self-hosted Piston requirements
 - Docker Compose deployment
 - Production verification
-- Free-tier limitations
 
 ## Current limitations
 
